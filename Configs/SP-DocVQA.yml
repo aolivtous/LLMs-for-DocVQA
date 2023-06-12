@@ -1,0 +1,3 @@
+dataset_name: SP-DocVQA
+imdb_dir:   /home/aolivera/SinglePage_DocVQA/ # /imdb/collection/imdb_train.npy
+images_dir: /home/aolivera/SinglePage_DocVQA/documents/

@@ -19,10 +19,10 @@ from fastchat.model import load_model, add_model_args
 def check_tokenizer_length(msg, answer, tokenizer, max_length):
 
     if answer is not None:
-        input_ids = tokenizer(["Be short, answer with one word if possible. \n### Human: " + msg + " \n### Assistant: " + answer + " "]).input_ids
+        input_ids = tokenizer(["Be short, asnwer with one word if possible. \n### Human: " + msg + " \n### Assistant: " + answer + " "]).input_ids
     
     else: 
-        input_ids = tokenizer(["Be short, answer with one word if possible. \n### Human: " + msg + " \n### Assistant: "]).input_ids
+        input_ids = tokenizer(["\n### Human: " + msg + " \n### Assistant: "]).input_ids
 
     if len(input_ids[0]) < max_length and len(msg) != 0:
         return True
@@ -39,9 +39,9 @@ if __name__ == "__main__":
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--model", type=str, default="lmsys/fastchat-t5-3b-v1.0")
-    parser.add_argument("--json_file", type=str, default="/home/aolivera/Documents/LLM_DocVQA/data/train_AllData_BB.json")
-    parser.add_argument("--output_file", type=str, default="/home/aolivera/Documents/LLM_DocVQA/data/train_validData_BB.json")
-    parser.add_argument("--discarded_questions", type=str, default="/home/aolivera/Documents/LLM_DocVQA/data/train_discarded_questions.txt")
+    parser.add_argument("--json_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Data/old/val_AllData_BB.json")
+    parser.add_argument("--output_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Data/val_ValidData_BB.json")
+    #parser.add_argument("--discarded_questions", type=str, default="/home/aolivera/Documents/LLM_DocVQA/data/train_discarded_questions.txt")
     args = parser.parse_args()
 
     with open(args.json_file) as f:
@@ -63,10 +63,11 @@ if __name__ == "__main__":
     for d in tqdm.tqdm(data):
 
         msg =  d['conversations'][0]['value']
-        if 'train' in args.json_file:
+        """if 'train' in args.json_file:
             answer = d['conversations'][1]['value']
         else:
-            answer = None
+            answer = None"""
+        answer = d['conversations'][1]['value']
 
         valid_question = check_tokenizer_length(msg, answer, tokenizer, max_length=2048)
         if valid_question:
@@ -88,9 +89,9 @@ if __name__ == "__main__":
     print('Discarded questions: ', len(discarded_questions))
 
 
-    #save the discarded questions
+    """#save the discarded questions
     with open(args.discarded_questions, 'w') as f:
         for item in discarded_questions:
-            f.write("%s\n" % item)
+            f.write("%s\n" % item)"""
 
 

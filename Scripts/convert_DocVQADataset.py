@@ -9,10 +9,7 @@ from utils import build_dataset, load_config
 
 def get_context(words,boxes, withBB):
     #Append all words
-    if withBB:
-        context = "I have this document with the following words and its coordinates x, y in the format word:(x1  y1). These are the words: "
-    else:
-        context = "I have this document with the following words: "
+    context = "I have this document with the following words: "
     for i,word in enumerate(words):
         if withBB:
             context += word + ":(" + str(int(boxes[i][0]*1000)) + ' ' + str(int(boxes[i][1]*1000)) + "), "
@@ -31,6 +28,7 @@ def convert_json_to_new_format(normalizedData, validData, isInference, withBB):
     
 
     for item in tqdm.tqdm(normalizedData.dataset):
+
 
         if item['question_id'] in valid_questions_id:
         #if validData is None:
@@ -70,11 +68,11 @@ if __name__ == "__main__":
 
     # Add arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--split', type=str, default='train', help='split to use')
+    parser.add_argument('--split', type=str, default='val', help='split to use')
     parser.add_argument('--getTrain', type=bool, default=True, help='get the train data')
-    parser.add_argument('--output_file_withAnswers', type=str, default='train_ValidData.json', help='path of the output JSON file that saves the context + questions in the FastChat format and the answers')
-    parser.add_argument('--output_file_forInference', type=str, default='train_AllQuestions.json', help='path of the output JSON file that saves the context + questions in the FastChat ')
-    parser.add_argument('--validQuestions', type=str, default='/home/aolivera/Documents/LLM_DocVQA/data/train_validData_BB.json', help='path of the config file')
+    parser.add_argument('--output_file_withAnswers', type=str, default='val_validData.json', help='path of the output JSON file that saves the context + questions in the FastChat format and the answers')
+    parser.add_argument('--output_file_forInference', type=str, default='val_validQuestions.json', help='path of the output JSON file that saves the context + questions in the FastChat ')
+    parser.add_argument('--validQuestions', type=str, default='/home/aolivera/TFM-LLM/LLM/Data/val_validData_BB.json', help='path of the config file')
     parser.add_argument('--withBB', type=bool, default=False, help='use also the bounding boxes')
     args = parser.parse_args()
 
@@ -85,7 +83,7 @@ if __name__ == "__main__":
 
     normalizedData = DataLoader(dataset, collate_fn=singlepage_docvqa_collate_fn)
 
-    #validData = None
+    validData = None
 
     with open(args.validQuestions) as f:
         validData = json.load(f)

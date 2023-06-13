@@ -16,6 +16,7 @@
 from collections import defaultdict
 import copy
 import os
+#os.environ["CUDA_VISIBLE_DEVICES"] = "5" #ADDED
 from dataclasses import dataclass, field
 import random
 import json
@@ -76,8 +77,8 @@ def safe_save_model_for_hf_trainer(trainer: transformers.Trainer, output_dir: st
     """Collects the state dict and dump to disk."""
     state_dict = trainer.model.state_dict()
     if trainer.args.should_save:
-        #cpu_state_dict = {key: value.cpu() for key, value in state_dict.items()} 
-        cpu_state_dict = {key: value for key, value in state_dict.items()} # MODIFIED bc if not the weights are not saved. Requires to call later the cleaning function for T5
+        #cpu_state_dict = {key: value.cpu() for key, value in state_dict.items()} #MODIFIED
+        cpu_state_dict = {key: value for key, value in state_dict.items()}
         del state_dict
         trainer._save(output_dir, state_dict=cpu_state_dict)  # noqa
 
@@ -91,6 +92,7 @@ def smart_tokenizer_and_embedding_resize(
     """Resize tokenizer and embedding.
 
     Note: This is the unoptimized version that may make your embedding size not be divisible by 64.
+
     """
     num_new_tokens = tokenizer.add_special_tokens(special_tokens_dict)
     for new_token in other_tokens:
@@ -181,8 +183,8 @@ def _add_speaker_and_signal(header, source, get_conversation=True):
     """Add speaker and start/end signal on each round."""
     BEGIN_SIGNAL = "### "
     END_SIGNAL = "\n"
-    conversation = header
-
+    
+    conversation = header 
     unknown_role = "unknown"  # use default unknown role
     roles = {
         "human": default_conversation.roles[0],  # human role
@@ -215,7 +217,7 @@ def _add_speaker_and_signal(header, source, get_conversation=True):
             sentence["value"] = sentence["value"] + END_SIGNAL
         if get_conversation:
             conversation += sentence["value"]
-
+    #print(conversation)
     return conversation
 
 
@@ -232,19 +234,24 @@ def preprocess(
     """
     # add end signal and concatenate together
     conversations = []
-    #header = f"{default_conversation.system}\n\n"
-    header = ""
+    #header = f"{default_conversation.system}\n\n" # MODIFIED
+    #header = "Be short, answer with one word if possible. "
+    header = "" #MODIFIED
     for source in sources:
         conversation = _add_speaker_and_signal(header, source, tokenizer)
         conversations.append(conversation)
+
     # TODO(Dacheng): This is related to whether the dataset has been truncated..
     # Assume we get long conversations, don't pad, don't return tensor
-    tokenized_conversations = tokenizer(conversations, max_length=None)["input_ids"]
+    tokenized_conversations = tokenizer(conversations, max_length=None, truncation=True)["input_ids"]
+
     q_list = []
     a_list = []
     # count for EOS length
     header_len = _tokenize_fn([header], tokenizer)["input_ids_lens"][0] - 1
     from tqdm import tqdm
+    
+
 
     for tokenized_conversation, source in tqdm(zip(tokenized_conversations, sources)):
         tokenized_sentence = _tokenize_fn([s["value"] for s in source], tokenizer)
@@ -252,6 +259,7 @@ def preprocess(
         tokenized_lens = [l - 1 for l in tokenized_lens]
         speakers = [sentence["from"] for sentence in source]
         ids = tokenized_sentence["input_ids"]
+
         _form_qa(
             q_list,
             a_list,
@@ -304,9 +312,9 @@ class SupervisedDataset(Dataset):
             json_data_dict = json.dumps(data_dict)
 
             # Remember to close file to avoid concurrent r/w
-            with open(self.preprocessed_path, "w") as f:
+            with open(self.preprocessed_path,"w") as f:
                 f.write(json_data_dict)
-
+            
             # Release barrier
             dist.barrier()
 
@@ -320,8 +328,8 @@ class SupervisedDataset(Dataset):
         res1, res2 = zip(*temp)
         data_dict["input_ids"], data_dict["labels"] = list(res1), list(res2)
 
-        # Dacheng: Get rid of short QA pair
-        self.input_ids = copy.deepcopy(data_dict["input_ids"])
+        # Dacheng: Get rid of short QA pair #MODIFIED
+        """self.input_ids = copy.deepcopy(data_dict["input_ids"])
         self.labels = copy.deepcopy(data_dict["labels"])
         length_arr = defaultdict(int)
         for idx, (input, label) in enumerate(
@@ -339,7 +347,7 @@ class SupervisedDataset(Dataset):
 
         for input, label in zip(self.input_ids, self.labels):
             assert len(input) >= 5
-            assert len(label) >= 5
+            assert len(label) >= 5"""
 
     def __len__(self):
         return len(self.input_ids)
@@ -389,12 +397,36 @@ def make_supervised_data_module(
         num_data=data_args.num_data,
     )
     data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
-    return dict(
-        train_dataset=train_dataset, eval_dataset=None, data_collator=data_collator
+    # import pdb; pdb.set_trace()
+    
+
+    val_dataset = dataset_cls(
+    tokenizer=tokenizer,
+    data_path=data_args.data_path.replace("train", "val"),
+    preprocessed_path=data_args.preprocessed_path.replace("train", "val"),
+    num_data=data_args.num_data,
     )
+
+    print(data_args.num_data)
+    return dict(
+        train_dataset=train_dataset, eval_dataset=val_dataset, data_collator=data_collator
+    )
+
+    """dataset_cls = (SupervisedDataset) 
+    
+    raw_data_train = json.load(open(data_args.data_path, "r"))
+    dir_data = str(data_args.data_path)
+    raw_data_eval = json.load(open(dir_data.replace("train","val"), "r"))
+    print("num_data::::::::::::...")
+    print(data_args.num_data)
+    
+    train_dataset = dataset_cls(raw_data_train, tokenizer=tokenizer, num_data=data_args, num_data=data_args.num_data)
+    eval_dataset = dataset_cls(raw_data_eval, tokenizer=tokenizer, num_data=data_args.num_data)
+    return dict(train_dataset=train_dataset, eval_dataset=eval_dataset,data_collator=data_collator)"""
 
 
 def train():
+
     parser = transformers.HfArgumentParser(
         (ModelArguments, DataArguments, TrainingArguments)
     )
@@ -436,7 +468,3 @@ def train():
 
 if __name__ == "__main__":
     train()
-
-
-
-

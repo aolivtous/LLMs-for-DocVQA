@@ -17,11 +17,13 @@ dist
 # Other
 .DS_Store
 Modified-Fastchat/wandb
+Modified-Fastchat/checkpoints
 Modified-Fastchat/output
 Modified-Fastchat/build
 Modified-Fastchat/playground/data/
 Modified-Fastchat/scripts/checkpoints/
 Modified-Fastchat/scripts/wandb
+Modified-Fastchat/scripts/output_vicuna_7b
 Data/
 Results/
 

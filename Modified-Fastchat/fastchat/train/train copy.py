@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 import json
 import pathlib
 from typing import Dict, Optional, Sequence
-import os
+
 import numpy as np
 import torch
 from torch.utils.data import Dataset
@@ -94,9 +94,6 @@ def preprocess(
             assert role == conv.roles[j % 2], f"{i}"
             conv.append_message(role, sentence["value"])
         conversations.append(conv.get_prompt())
-        
-    print(conversations)#ADDED
-    print(conversations[0])#ADDED
 
     # Tokenize conversations
     input_ids = tokenizer(
@@ -220,6 +217,7 @@ def make_supervised_data_module(
     raw_data = json.load(open(data_args.data_path, "r"))
 
     # Split train/test
+    np.random.seed(0)
     perm = np.random.permutation(len(raw_data))
     split = int(len(perm) * 0.98)
     train_indices = perm[:split]

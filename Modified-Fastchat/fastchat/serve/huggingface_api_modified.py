@@ -62,10 +62,11 @@ if __name__ == "__main__":
     #parser.add_argument("--model", type=str, default="/data/shared/vicuna/vicuna-7b")
     #parser.add_argument("--model", type=str, default="lmsys/fastchat-t5-3b-v1.0") 
 
-    parser.add_argument("--model", type=str, default="/home/aolivera/Documents/LLM_DocVQA/FastChat/checkpoints/checkpoints_T5_text/checkpoint-3300") 
-    
-    parser.add_argument("--json_file", type=str, default="/home/aolivera/Documents/LLM_DocVQA/data/val_validQuestions_BB.json")
-    parser.add_argument("--output_file", type=str, default="/home/aolivera/Documents/LLM_DocVQA/val_inference_T5_BB_prova.json")
+    #parser.add_argument("--model", type=str, default="/home/aolivera/Documents/LLM_DocVQA/FastChat/checkpoints/checkpoints_T5_text/checkpoint-3300") 
+    parser.add_argument("--model", type=str, default="/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_3bcopy") 
+   
+    parser.add_argument("--json_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Data/val_validQuestions_BB.json")
+    parser.add_argument("--output_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Results/inference/val_inference_T5_text_prova.json")
     args = parser.parse_args()
 
     with open(args.json_file) as f:

@@ -18,13 +18,16 @@ dist
 .DS_Store
 Modified-Fastchat/wandb
 Modified-Fastchat/output
+Modified-Fastchat/build
+Modified-Fastchat/playground/data/
+Modified-Fastchat/scripts/checkpoints/
+Modified-Fastchat/scripts/wandb
+Data/
+Results/
 
 # Data
 *.pkl
 *.csv
 
-# Build
-Modified-Fastchat/build
-Modified-Fastchat/playground/data/
-Data/
-Results/
+
+

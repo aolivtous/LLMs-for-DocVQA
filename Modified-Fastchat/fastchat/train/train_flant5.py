@@ -76,7 +76,8 @@ def safe_save_model_for_hf_trainer(trainer: transformers.Trainer, output_dir: st
     """Collects the state dict and dump to disk."""
     state_dict = trainer.model.state_dict()
     if trainer.args.should_save:
-        cpu_state_dict = {key: value.cpu() for key, value in state_dict.items()}
+        #cpu_state_dict = {key: value.cpu() for key, value in state_dict.items()} 
+        cpu_state_dict = {key: value for key, value in state_dict.items()} # MODIFIED bc if not the weights are not saved. Requires to call later the cleaning function for T5
         del state_dict
         trainer._save(output_dir, state_dict=cpu_state_dict)  # noqa
 

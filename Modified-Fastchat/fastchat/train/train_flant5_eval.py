@@ -16,7 +16,6 @@
 from collections import defaultdict
 import copy
 import os
-#os.environ["CUDA_VISIBLE_DEVICES"] = "5" #ADDED
 from dataclasses import dataclass, field
 import random
 import json
@@ -329,9 +328,9 @@ class SupervisedDataset(Dataset):
         data_dict["input_ids"], data_dict["labels"] = list(res1), list(res2)
 
         # Dacheng: Get rid of short QA pair #MODIFIED
-        """self.input_ids = copy.deepcopy(data_dict["input_ids"])
+        self.input_ids = copy.deepcopy(data_dict["input_ids"])
         self.labels = copy.deepcopy(data_dict["labels"])
-        length_arr = defaultdict(int)
+        """length_arr = defaultdict(int)
         for idx, (input, label) in enumerate(
             zip(data_dict["input_ids"], data_dict["labels"])
         ):
@@ -348,7 +347,7 @@ class SupervisedDataset(Dataset):
         for input, label in zip(self.input_ids, self.labels):
             assert len(input) >= 5
             assert len(label) >= 5"""
-
+    
     def __len__(self):
         return len(self.input_ids)
 

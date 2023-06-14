@@ -25,11 +25,13 @@ def main(args, msg, model, tokenizer):
         #conv.append_message(conv.roles[0], msg)
         #conv.append_message(conv.roles[1], None)
         #prompt = conv.get_prompt()
-        input_ids = tokenizer(["Be short, answer with one word if possible. USER: " + msg + " ASSISTANT: "]).input_ids #WITHOUT PUTING USER AND ASSISTANT IT DOES NOT WORK
+
+        # for inferecne (without fine-tune) we should add: Be short, answer with one word if possible. 
+        input_ids = tokenizer(["USER: " + msg + " ASSISTANT: "]).input_ids #WITHOUT PUTING USER AND ASSISTANT IT DOES NOT WORK
 
     else: 
-
-        input_ids = tokenizer(["Be short, answer with one word if possible. \n### Human: " + msg + " \n### Assistant: "]).input_ids
+        # for inferecne (without fine-tune) we should add: Be short, answer with one word if possible. 
+        input_ids = tokenizer(["### Human: " + msg + " \n ### Assistant: "]).input_ids
         
     output_ids = model.generate(
         torch.as_tensor(input_ids).cuda(),
@@ -63,10 +65,10 @@ if __name__ == "__main__":
     #parser.add_argument("--model", type=str, default="lmsys/fastchat-t5-3b-v1.0") 
 
     #parser.add_argument("--model", type=str, default="/home/aolivera/Documents/LLM_DocVQA/FastChat/checkpoints/checkpoints_T5_text/checkpoint-3300") 
-    parser.add_argument("--model", type=str, default="/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_3b/") 
+    parser.add_argument("--model", type=str, default="/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_BB") 
    
     parser.add_argument("--json_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Data/val_validQuestions_BB.json")
-    parser.add_argument("--output_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Results/inference/val_inference_T5_text_05.json")
+    parser.add_argument("--output_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Results/inference/val_inference_T5_text_05_test.json")
     args = parser.parse_args()
 
     with open(args.json_file) as f:

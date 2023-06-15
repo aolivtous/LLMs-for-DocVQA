@@ -111,7 +111,7 @@ def space_layout(texts, boxes):
         while len(boxes) > 0 and line_box[-1][1] == boxes[0][1]: #check if next box is in same line
             line_box.append(boxes.pop(0)) #remove box from boxes and add it to line_box
             line_text.append(texts.pop(0)) #remove text from texts and add it to line_text
-            char_num += len(line_text[-1]) #number of characters of the line
+            char_num += 1 + len(line_text[-1]) #number of characters of the line
             line_union_box = union_box(line_union_box, line_box[-1])
         line_boxes.append(line_box)
         line_texts.append(line_text)
@@ -213,5 +213,5 @@ if __name__ == "__main__":
         })
         print(text)
         i += 1
-        if i == 20:
+        if i == 10:
             break

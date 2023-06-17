@@ -6,23 +6,6 @@ from SP_DocVQA import singlepage_docvqa_collate_fn
 from evaluation import parse_args
 from utils import build_dataset, load_config
 import tqdm
-#sys.path.append(".")
-
-
-
-
-def boxes_sort_old(boxes): # first sort by y, then sort by x
-    """
-    Params:
-        boxes: [[x1, y1, x2, y2], [x1, y1, x2, y2], ...]
-    """
-    old_boxes = boxes.copy()
-    sorted_id = sorted(range(len(boxes)), key=lambda x: (boxes[x][1], boxes[x][0]))
-
-    # sorted_boxes = [boxes[id] for id in sorted_id]
-
-
-    return sorted_id
 
 
 def boxes_sort(boxes,texts): # first sort by y, then sort by x
@@ -64,10 +47,6 @@ def sort_by_line(boxes,texts):
     return sorted_boxes,sorted_id,sorted_texts
         
 
-
-            
-        
-
 def union_box(box1, box2):
     """
     Params:
@@ -102,7 +81,6 @@ def space_layout(texts, boxes):
     line_texts = []
     max_line_char_num = 0
     line_width = 0
-    # print(f"len_boxes: {len(boxes)}")
     while len(boxes) > 0:
         line_box = [boxes.pop(0)] #remove box from boxes and add it to line_box
         line_text = [texts.pop(0)] #remove text from texts and add it to line_text
@@ -111,19 +89,23 @@ def space_layout(texts, boxes):
         while len(boxes) > 0 and line_box[-1][1] == boxes[0][1]: #check if next box is in same line
             line_box.append(boxes.pop(0)) #remove box from boxes and add it to line_box
             line_text.append(texts.pop(0)) #remove text from texts and add it to line_text
-            char_num += len(line_text[-1]) #number of characters of the line
+            
             line_union_box = union_box(line_union_box, line_box[-1])
+
+            char_dim = (line_box[-1][2] - line_box[-1][0])/len(line_text[-1]) #width of the last character in the line
+            if char_dim == 0:
+                spaces = 0
+            else:
+                spaces =  math.ceil((line_box[-1][0] - line_box[-2][2])/char_dim) #number of spaces between last and second last character
+            char_num += (len(line_text[-1] )+ spaces) #number of characters of the line
+
         line_boxes.append(line_box)
         line_texts.append(line_text)
         if char_num >= max_line_char_num:
             max_line_char_num = char_num
             line_width = line_union_box[2] - line_union_box[0]
-    
-    # print(line_width)
 
     char_width = line_width / max_line_char_num
-    print("char width ::::::::::::::::::::::::")
-    print(char_width)
     if char_width == 0:
         char_width = 1
 
@@ -132,7 +114,7 @@ def space_layout(texts, boxes):
         space_line_text = ""
         for j, box in enumerate(line_box):
             # round always to the next integer
-            left_char_num = math.ceil(box[0] / char_width)
+            left_char_num = int(box[0] / char_width)
             #left_char_num = int(box[0] / char_width)
             if left_char_num - len(space_line_text) <= 0:
                 space_line_text += " " 
@@ -144,29 +126,18 @@ def space_layout(texts, boxes):
 
     return space_line_texts
 
-def create_latinLayout(item,i):
-    print(item)
+def create_latinLayout(item):
     texts = item["words"]
     text_boxes = item["boxes"]
     sorted_boxes,sorted_texts = boxes_sort(text_boxes,texts)
-    #sorted_texts = [texts[id] for id in ids]
-  
-    #texts = ["{" + f'{count}-{texts[i]}' + "}" for count, i in enumerate(ids)]
-
     space_line_texts = space_layout(texts=sorted_texts, boxes=sorted_boxes)
 
-
-    """with open(str(i) + ".txt", "w") as f:
-        f.write("\n".join(space_line_texts))"""
-
-
     return space_line_texts
-    
 
 
 if __name__ == "__main__":
 
-
+    
     PROMPT_DICT = {
     "prompt_task": (
         "You are asked to answer questions asked on a document image.\n"
@@ -183,17 +154,27 @@ if __name__ == "__main__":
         "Directly extract the answer of the question from the document.\n\n"
         "Answer:"
     ),
+    "prompt_inference": (
+        "I have this document with the following words:\n{document}\n\n"
+        "Question: {question}\n\n"
+        "Directly extract the answer of the question from the document.\n\n"
+        "Answer:"
+    ),
+    
+    "prompt_finetune": (
+        "Document:\n{document}\n\n"
+        "Question: {question}\n\n"
+        "Directly extract the answer of the question from the document.\n\n"
+        "Answer:"
+    ),
     }   
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--split', type=str, default='val', help='split to use')
+    parser.add_argument('--output_file', type=str, default='val_allDataInference_latin.json', help='path of the output JSON file that saves the context + questions in the FastChat format and the answers')
+    parser.add_argument('--is_inference', type=bool,default=True, help='wheter to include answers or not')
     args = parser.parse_args()
 
-    #filepath = "/home/aolivera/SinglePage_DocVQA/train/ocr_results/nmmg0227_4.json"
-    #with open(filepath, "r") as f:
-    #    data = json.load(f)
-
-     
     config = load_config(parse_args())
 
     dataset = build_dataset(config, args.split)
@@ -201,17 +182,51 @@ if __name__ == "__main__":
     normalizedData = DataLoader(dataset, collate_fn=singlepage_docvqa_collate_fn)
     texts = []
     text_boxes = []
+    new_data = []
     i = 0
+
     for item in tqdm.tqdm(normalizedData.dataset):
 
-        space_line_texts = create_latinLayout(item,i)
+        space_line_texts = create_latinLayout(item)
 
         doc = "\n".join(space_line_texts)
-        text = PROMPT_DICT["prompt_task"].format_map({
-            "document": doc,
-            "question": "what is the answer?"
-        })
-        print(text)
-        i += 1
-        if i == 20:
-            break
+        
+        #if validData is None:
+        context = "I have this document with the following words: \n" + doc
+        query =  context + '. ' + item['questions'] 
+    
+        if args.is_inference:
+            answer = ''
+        else :
+            #answer = '. '.join(item['answers']) 
+            answer = item['answers'][0] 
+
+        conversation = [
+            {
+                'from': 'human',
+                'value': query
+            },
+            {
+                'from': 'gpt',
+                'value': answer
+            }
+        ]
+
+        new_item = {
+            'id': f'identity_{item["question_id"]}',
+            'conversations': conversation
+        }
+
+        new_data.append(new_item)
+
+     # Convert to JSON string
+    new_format_json_str = json.dumps(new_data, indent=2)
+
+    # save the JSON string to a file
+
+    with open(args.output_file, 'w') as f:
+        f.write(new_format_json_str)
+
+
+    
+

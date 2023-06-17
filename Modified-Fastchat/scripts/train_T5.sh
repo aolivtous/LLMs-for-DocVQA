@@ -5,7 +5,7 @@ CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --use-env --nproc_pe
     --output_dir /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/checkpoints/checkpoints_T5_textBB_05 \
     --num_train_epochs 0.4 \
     --per_device_train_batch_size 2 \
-    --per_device_eval_batch_size 1 \
+    --per_device_eval_batch_size 2 \
     --gradient_accumulation_steps 16 \
     --evaluation_strategy "no" \
     --save_strategy "steps" \

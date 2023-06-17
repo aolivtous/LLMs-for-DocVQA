@@ -1,11 +1,11 @@
 CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --use-env --nproc_per_node=2  --master_port=20001 /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/fastchat/train/train.py \
     --model_name_or_path /data/shared/vicuna/vicuna-7b \
-    --data_path /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/playground/data/train_validData_BB.json \
+    --data_path /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/playground/data/train_validData.json \
     --bf16 True \
     --output_dir output_vicuna_7b \
     --num_train_epochs 0.01 \
     --per_device_train_batch_size 2 \
-    --per_device_eval_batch_size 16 \
+    --per_device_eval_batch_size 2 \
     --gradient_accumulation_steps 16 \
     --evaluation_strategy "steps" \
     --eval_steps 1500 \

@@ -68,7 +68,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, default="/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_BB") 
    
     parser.add_argument("--json_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Data/val_validQuestions_BB.json")
-    parser.add_argument("--output_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Results/inference/val_inference_T5_text_05_test.json")
+    parser.add_argument("--output_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Results/inference/val_inference_T5_BB_trained_3epochs.json")
     args = parser.parse_args()
 
     with open(args.json_file) as f:

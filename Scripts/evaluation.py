@@ -14,13 +14,13 @@ from utils import load_config, save_json, build_dataset, extract_answers
 
 def parse_args():
     parser = argparse.ArgumentParser(description='MP-DocVQA framework')
-    parser.add_argument('--model', type=str, default = "vicuna-7B", help='Name of the model')
-    parser.add_argument('--predictedAnswers', type=str, default = "/home/aolivera/TFM-LLM/LLM/Results/inference/val_inference_T5_text_05.json", help='Path to predicted answers json file.')
+    parser.add_argument('--model', type=str, default = "T5", help='Name of the model')
+    parser.add_argument('--predictedAnswers', type=str, default = "/home/aolivera/TFM-LLM/LLM/Results/inference/val_inference_T5_BB_trained_3epochs.json", help='Path to predicted answers json file.')
     parser.add_argument('--dataset', type=str, default = "/home/aolivera/TFM-LLM/LLM/Configs/SP-DocVQA.yml", help='Path to yml file with dataset configuration.')
     parser.add_argument('--split', type=str, default = 'val', help='Dataset split: train, val, test.')
     parser.add_argument('--max-sequence-length', type=int, help='Max input sequence length of the model.')
     parser.add_argument('--save-dir', type=str, default = "/home/aolivera/TFM-LLM/LLM/Results/evaluation/" , help='path of the directory where the results folder will be saved')
-    parser.add_argument('--context-type', type=str, default = "textBB", help='input context type for the model: text, textBB')
+    parser.add_argument('--context-type', type=str, default = "BB_3epochs", help='input context type for the model: text, textBB')
     #parser.add_argument('-bs', '--batch-size', type=int, help='DataLoader batch size.')
     
     #parser.add_argument('--seed', type=int, help='Seed to allow reproducibility.')
@@ -106,7 +106,7 @@ if __name__ == '__main__':
     }
 
     experiment_date = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    results_file = os.path.join(config['save_dir'], 'results', "{:}_{:}_{:}_{:}.json".format(config['model'], args.split, args.context_type, experiment_date))
+    results_file = os.path.join(config['save_dir'], "{:}_{:}_{:}_{:}.json".format(config['model'], args.split, args.context_type, experiment_date))
     save_json(results_file, save_data)
 
     print("Results correctly saved in: {:s}".format(results_file))

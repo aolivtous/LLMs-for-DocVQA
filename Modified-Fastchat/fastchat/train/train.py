@@ -93,7 +93,9 @@ def preprocess(
             role = roles[sentence["from"]]
             assert role == conv.roles[j % 2], f"{i}"
             conv.append_message(role, sentence["value"])
-        conversations.append(conv.get_prompt())
+        
+        conversations.append(conv.get_prompt().replace("A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.", ""))#modified
+        #conversations.append(conv.get_prompt())
         
     print(conversations)#ADDED
     print(conversations[0])#ADDED

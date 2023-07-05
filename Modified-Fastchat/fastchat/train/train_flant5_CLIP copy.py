@@ -21,20 +21,30 @@ import random
 import json
 import logging
 import pathlib
-from typing import Dict, Optional, Sequence
-
+from typing import Any, Dict, Optional, Sequence
+from PIL import Image
 import torch
 import torch.distributed as dist
-
+import torchvision.transforms as transforms
+import tqdm
 import transformers
+from transformers import CLIPImageProcessor 
 from torch.utils.data import Dataset
 from transformers import Trainer, AddedToken
+from transformers.models.t5 import modeling_t5
 
 from fastchat.model.model_adapter import get_conversation_template
 
 default_conversation = get_conversation_template("t5")
 
 # TODO: import and use code from ../data/dataset.py
+
+import sys
+# caution: path[0] is reserved for script path (or '' in REPL)
+sys.path.insert(1, '/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/fastchat/model')
+
+from docvqa_llm import DocVQALLM
+
 
 IGNORE_INDEX = -100
 DEFAULT_PAD_TOKEN = "[PAD]"
@@ -97,11 +107,13 @@ def smart_tokenizer_and_embedding_resize(
     for new_token in other_tokens:
         num_new_tokens += tokenizer.add_tokens(AddedToken(new_token, normalized=False))
 
-    model.resize_token_embeddings(len(tokenizer))
+    # model.resize_token_embeddings(len(tokenizer))
+    model.llm_model.resize_token_embeddings(len(tokenizer))
+    
 
     if num_new_tokens > 0:
-        input_embeddings = model.get_input_embeddings().weight.data
-        output_embeddings = model.get_output_embeddings().weight.data
+        input_embeddings = model.llm_model.get_input_embeddings().weight.data
+        output_embeddings = model.llm_model.get_output_embeddings().weight.data
 
         input_embeddings_avg = input_embeddings[:-num_new_tokens].mean(
             dim=0, keepdim=True
@@ -114,7 +126,7 @@ def smart_tokenizer_and_embedding_resize(
         output_embeddings[-num_new_tokens:] = output_embeddings_avg
 
 
-def _tokenize_fn(
+def _tokenize_fn( # mirar si fa falta que cada label sigui la paraula \n </s> o simplement la paraula
     strings: Sequence[str], tokenizer: transformers.PreTrainedTokenizer
 ) -> Dict:
     """Tokenize a list of strings."""
@@ -138,6 +150,7 @@ def _tokenize_fn(
         labels=labels,
         input_ids_lens=input_ids_lens,
         labels_lens=labels_lens,
+        images=None,
     )
 
 
@@ -222,6 +235,7 @@ def _add_speaker_and_signal(header, source, get_conversation=True):
 
 def preprocess(
     sources: Sequence[str],
+    imgSources: Sequence[str],
     tokenizer: transformers.PreTrainedTokenizer,
 ) -> Dict:
     """
@@ -258,6 +272,7 @@ def preprocess(
         tokenized_lens = [l - 1 for l in tokenized_lens]
         speakers = [sentence["from"] for sentence in source]
         ids = tokenized_sentence["input_ids"]
+        
 
         _form_qa(
             q_list,
@@ -269,7 +284,7 @@ def preprocess(
             tokenizer.model_max_length,
             tokenizer.eos_token_id,
         )
-    return dict(input_ids=q_list, labels=a_list)
+    return dict(input_ids=q_list, labels=a_list, images=imgSources)
 
 
 class SupervisedDataset(Dataset):
@@ -286,19 +301,20 @@ class SupervisedDataset(Dataset):
 
         # save to file
         # Make sure only the first process is processing the dataset
-        # if dist.get_rank() != 0:
-        #     dist.barrier()
+        if dist.get_rank() != 0:
+            dist.barrier()
         self.preprocessed_path = preprocessed_path
         if os.path.exists(self.preprocessed_path):
             logging.warning("loading from preprocessed data")
             with open(self.preprocessed_path, "r") as f:
                 data_dict = json.load(f)
-            # if dist.get_rank() == 0:
-            #     dist.barrier()
+                
+            if dist.get_rank() == 0:
+               dist.barrier()
         else:
             if not os.path.exists("preprocessed_data"):
                 os.mkdir("preprocessed_data")
-            # assert dist.get_rank() == 0, "Only the first process should process"
+            assert dist.get_rank() == 0, "Only the first process should process"
             logging.warning("Loading data...")
             list_data_dict = json.load(open(data_path, "r"))
 
@@ -306,53 +322,67 @@ class SupervisedDataset(Dataset):
             sources = []
 
             sources = [example["conversations"] for example in list_data_dict]
+            images = [example["image"] for example in list_data_dict]
 
-            data_dict = preprocess(sources, tokenizer)
+            data_dict = preprocess(sources, images, tokenizer)
             json_data_dict = json.dumps(data_dict)
 
+
             # Remember to close file to avoid concurrent r/w
-            with open(self.preprocessed_path,"w") as f:
+            with open(self.preprocessed_path,"w") as f: # what about the image tensors? we can't save them in the json 
                 f.write(json_data_dict)
-            
+
             # Release barrier
-            # dist.barrier()
+            dist.barrier()
 
         if num_data != -1:
             data_dict["input_ids"] = data_dict["input_ids"][:num_data]
             data_dict["labels"] = data_dict["labels"][:num_data]
+            data_dict["images"] = data_dict["images"][:num_data]
+
+        full_data_dict = {}
+        full_data_dict["input_ids"] = copy.deepcopy(data_dict["input_ids"])
+        full_data_dict["labels"] = copy.deepcopy(data_dict["labels"])
+        full_data_dict["images"] = self.load_images(data_dict["images"])
 
         # Shuffle data to see more conversations, if only train on partial data
-        temp = list(zip(data_dict["input_ids"], data_dict["labels"]))
+        temp = list(zip(full_data_dict["input_ids"], full_data_dict["labels"], full_data_dict["images"]))
         random.shuffle(temp)
-        res1, res2 = zip(*temp)
-        data_dict["input_ids"], data_dict["labels"] = list(res1), list(res2)
+        res1, res2, res3 = zip(*temp)
+        full_data_dict["input_ids"], full_data_dict["labels"], full_data_dict["images"] = list(res1), list(res2), list(res3)
+
 
         # Dacheng: Get rid of short QA pair #MODIFIED
-        self.input_ids = copy.deepcopy(data_dict["input_ids"])
-        self.labels = copy.deepcopy(data_dict["labels"])
-        """length_arr = defaultdict(int)
-        for idx, (input, label) in enumerate(
-            zip(data_dict["input_ids"], data_dict["labels"])
-        ):
-            length_arr[str(len(label) // 100)] += 1
-            if len(input) <= 5:
-                del_idx = self.input_ids.index(input)
-                self.input_ids.pop(del_idx)
-                self.labels.pop(del_idx)
-            if len(label) <= 5:
-                del_idx = self.labels.index(label)
-                self.input_ids.pop(del_idx)
-                self.labels.pop(del_idx)
-
-        for input, label in zip(self.input_ids, self.labels):
-            assert len(input) >= 5
-            assert len(label) >= 5"""
+        self.input_ids = copy.deepcopy(full_data_dict["input_ids"])
+        self.labels = copy.deepcopy(full_data_dict["labels"])
+        self.images = copy.deepcopy(full_data_dict["images"])
     
     def __len__(self):
         return len(self.input_ids)
 
+    
+    def load_images(self, images_sources):
+        
+    
+    
+        image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32")
+            
+        images = []
+        for img_source in images_sources:
+            #image = image_processor(images=image, do_center_crop=False, return_tensors="pt")
+            image = Image.open(img_source).resize((224, 224))
+            image = image_processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
+            images.append(image)
+        return images
+
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
-        return dict(input_ids=self.input_ids[i], labels=self.labels[i])
+
+        #image = self.load_image(self.images[i], None)
+        #return dict(input_ids=self.input_ids[i], images= image, labels=self.labels[i])
+        return dict(input_ids=self.input_ids[i], images= self.images[i], labels=self.labels[i])
+
+
+
 
 
 @dataclass
@@ -363,37 +393,34 @@ class DataCollatorForSupervisedDataset(object):
 
     def __call__(self, instances: Sequence[Dict]) -> Dict[str, torch.Tensor]:
 
-        print("collate")
-        print(instances)
-        print(self)
-        print("Instances")
-        print(len(instances))
-        print(instances[0])
 
-        print("Sequence Dic")
-        print((Sequence[Dict]))
 
-  
         input_ids, labels = tuple(
             [
                 torch.as_tensor(instance[key], dtype=torch.int64)
                 for instance in instances
             ]
-            for key in ("input_ids", "labels")
+            for key in ("input_ids","labels")
         )
+
         input_ids = torch.nn.utils.rnn.pad_sequence(
             input_ids, batch_first=True, padding_value=self.tokenizer.pad_token_id
         )
         labels = torch.nn.utils.rnn.pad_sequence(
             labels, batch_first=True, padding_value=IGNORE_INDEX
         )
+
+        images = [instance["images"] for instance in instances]
+
         ret = dict(
             input_ids=input_ids,
+            images=images,
             labels=labels,
             attention_mask=input_ids.ne(self.tokenizer.pad_token_id),
         )
         torch.set_printoptions(profile="full")
         return ret
+
 
 
 def make_supervised_data_module(
@@ -408,19 +435,13 @@ def make_supervised_data_module(
         num_data=data_args.num_data,
     )
 
-    print("make_supervised_data_module:::::::::::::::::::::::")    
-    print(train_dataset)
-    
-
     data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
-    # import pdb; pdb.set_trace()
-    
 
     val_dataset = dataset_cls(
-    tokenizer=tokenizer,
-    data_path=data_args.data_path.replace("train", "val"),
-    preprocessed_path=data_args.preprocessed_path.replace("train", "val"),
-    num_data=data_args.num_data,
+        tokenizer=tokenizer,
+        data_path=data_args.data_path.replace("train", "val"),
+        preprocessed_path=data_args.preprocessed_path.replace("train", "val"),
+        num_data=data_args.num_data,
     )
 
     #print(data_args.num_data)
@@ -435,10 +456,14 @@ def train():
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
-    model = transformers.AutoModelForSeq2SeqLM.from_pretrained(
-        model_args.model_name_or_path,
-        cache_dir=training_args.cache_dir,
-    )
+    model = DocVQALLM(
+                freeze_cnn=False,
+            )
+    # model = transformers.AutoModelForSeq2SeqLM.from_pretrained(
+    #     model_args.model_name_or_path,
+    #     cache_dir=training_args.cache_dir,
+    # )
+
     # Dacheng: Note we can only use T5Tokenizer, otherwise it will prepend
     # a space before special tokens.
     tokenizer = transformers.T5Tokenizer.from_pretrained(
@@ -460,6 +485,7 @@ def train():
     trainer = Trainer(
         model=model, tokenizer=tokenizer, args=training_args, **data_module
     )
+    
 
     if list(pathlib.Path(training_args.output_dir).glob("checkpoint-*")):
         trainer.train(resume_from_checkpoint=True)

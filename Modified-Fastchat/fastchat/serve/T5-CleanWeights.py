@@ -10,7 +10,7 @@ from fastchat.utils import clean_flant5_ckpt
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dirWeights", type=str, default="/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5") 
+    parser.add_argument("--dirWeights", type=str, default="/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_latin_spaces_8epochs") 
    
     args = parser.parse_args()
 

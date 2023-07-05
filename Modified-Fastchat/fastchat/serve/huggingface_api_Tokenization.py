@@ -14,10 +14,9 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import tqdm
 from fastchat.model import load_model, add_model_args
 
-
 @torch.inference_mode()
 def check_tokenizer_length(msg, answer, tokenizer, max_length):
-
+    import pdb; pdb.set_trace()
     if answer is not None:
         input_ids = tokenizer(["Be short, asnwer with one word if possible. \n### Human: " + msg + " \n### Assistant: " + answer + " "]).input_ids
     
@@ -29,6 +28,7 @@ def check_tokenizer_length(msg, answer, tokenizer, max_length):
     else:
         #print('Discarded question: ', msg)
         return False
+    
 
 
 

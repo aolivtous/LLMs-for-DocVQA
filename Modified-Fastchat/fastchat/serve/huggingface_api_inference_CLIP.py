@@ -33,8 +33,6 @@ def main(args, msg, model, tokenizer):
         # for inferecne (without fine-tune) we should add: Be short, answer with one word if possible. 
         input_ids = tokenizer(["Be short, answer with one word if possible ### Human: " + msg + " \n ### Assistant: "]).input_ids
     
-    import pdb; pdb.set_trace()
-    
     output_ids = model.generate(
         torch.as_tensor(input_ids).cuda(),
         do_sample=True,
@@ -64,7 +62,7 @@ if __name__ == "__main__":
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--debug", action="store_true")
 
-    #parser.add_argument("--model", type=str, default="/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_8epochs/checkpoint-2700") 
+    parser.add_argument("--model", type=str, default="/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_8epochs/checkpoint-2700") 
    
     parser.add_argument("--json_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Data/val_allQuestions_latin_spaces.json")
     parser.add_argument("--output_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Results/inference/val_inference_latin_spaces_8epochs.json")

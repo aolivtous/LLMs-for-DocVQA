@@ -3,7 +3,7 @@ CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --use-env --nproc_pe
     --data_path /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/playground/data/train_pretaskData_reduced.json \
     --bf16 True \
     --output_dir ./checkpoints/checkpoints_flant5_pretask_20epochs_CNN \
-    --num_train_epochs 1 \
+    --num_train_epochs 20 \
     --per_device_train_batch_size 2 \
     --per_device_eval_batch_size 2 \
     --gradient_accumulation_steps 16 \

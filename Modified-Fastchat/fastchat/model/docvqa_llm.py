@@ -20,6 +20,7 @@ from torch.utils.data import Dataset
 from transformers import Trainer, AddedToken
 
 from fastchat.model.model_adapter import get_conversation_template
+from torchvision import models, transforms
 
 
 IGNORE_INDEX = -100
@@ -96,6 +97,9 @@ class DocVQALLM(nn.Module):
         self,
         freeze_linear=False,
         vision_tower_type="",
+        freeze_visionTower=False,
+        freeze_llm=True,
+        
     ):
         super().__init__()
 
@@ -107,15 +111,33 @@ class DocVQALLM(nn.Module):
         if vision_tower_type == "CLIP":
 
             self.vision_tower = CLIPVisionModel.from_pretrained("openai/clip-vit-base-patch32")
+            self.vision_tower_inFeatures = self.vision_tower.config.hidden_size
 
             #device = "cuda" if torch.cuda.is_available() else "cpu"
             #self.vision_tower, preprocess = clip.load("ViT-B/32", device=device)
             #self.vision_tower.requires_grad_(False)
-
-            for name, param in self.vision_tower.named_parameters():
-                param.requires_grad = False
+            if freeze_visionTower:
+                for name, param in self.vision_tower.named_parameters():
+                    param.requires_grad = False
+            else:
+                for name, param in self.vision_tower.named_parameters():
+                    param.requires_grad = True
 
             print('Loading projection layer')
+        
+        elif vision_tower_type == "ResNet":
+            self.vision_tower = models.resnet18(pretrained=True)
+            self.vision_tower_inFeatures = self.vision_tower.fc.in_features
+            #remove the last layer
+            
+            self.vision_tower = nn.Sequential(*list(self.vision_tower.children())[:-1])
+
+            if freeze_visionTower:
+                for name, param in self.vision_tower.named_parameters():
+                    param.requires_grad = False
+            else:
+                for name, param in self.vision_tower.named_parameters():
+                    param.requires_grad = True
 
         else: # CNN
 
@@ -153,42 +175,42 @@ class DocVQALLM(nn.Module):
             model=self.llm_model,
         )
 
-        #froze the llm model    
-        for name, param in self.llm_model.named_parameters():
-            param.requires_grad = False
+        #frize the llm model    
+        if freeze_llm:
+            for name, param in self.llm_model.named_parameters():
+                param.requires_grad = False
+        else:
+            for name, param in self.llm_model.named_parameters():
+                param.requires_grad = True
 
 
-        if vision_tower_type == "CLIP": 
+        if vision_tower_type == "CLIP" or vision_tower_type == "ResNet": 
             print('Loading projection layer')
-            self.mm_projector = nn.Linear(self.vision_tower.config.hidden_size, self.llm_model.config.hidden_size)
+            self.mm_projector = nn.Linear(self.vision_tower_inFeatures, self.llm_model.config.hidden_size)
+            #move the projection layer to the device
+            self.mm_projector.to(self.llm_model.device)
         
-
+        #move vision tower to the device
+        self.vision_tower.to(self.llm_model.device)
         print('Loading model done')
        
 
 
     def forward(self, input_ids, images,labels,attention_mask):
-        # load a tensor of images [batch_size, 3, 224, 224]
+        # load a tensor of images [batch_size, 3, 224, 224] for ResNet
         
         img_embeds = self.encode_img(images) #What do we do with the attentions? -
 
-        #
-
-        
         # remove the last token from the input_ids
-        input_ids = input_ids[:, :-1] # remove eos token
-        input_embeds = self.llm_model.shared(input_ids)
+        first_input_ids = input_ids[:, 0:15] # ### Human: Type the folowing word:
+        second_input_ids = input_ids[:, 15:] # ### Assistant: </s>
+        
+        # remove eos token
+        first_input_embeds = self.llm_model.shared(first_input_ids)
+        second_input_embeds = self.llm_model.shared(second_input_ids)
 
-        #bos_embeds = self.llm_model.shared(torch.tensor([self.tokenizer(DEFAULT_BOS_TOKEN).input_ids]).to(input_ids.device))
-        #eos_embeds = self.llm_model.shared(torch.tensor([self.tokenizer(DEFAULT_EOS_TOKEN).input_ids]).to(input_ids.device))
-        eos_embeds = self.llm_model.shared(torch.tensor([self.tokenizer.eos_token_id]).to(input_ids.device))    
 
-        #expand the bos and eos to the batch size
-        #bos_embeds = bos_embeds.expand(input_embeds.shape[0], bos_embeds.shape[1], bos_embeds.shape[2])
-        eos_embeds = eos_embeds.expand(input_embeds.shape[0], eos_embeds.size()[0], eos_embeds.size()[1])
-
-        #to_regress_embeds = torch.cat([bos_embeds, input_embeds,img_embeds, eos_embeds], dim=1) # correct size([batchsize=2, X, 2048])
-        to_regress_embeds = torch.cat([input_embeds,img_embeds, eos_embeds], dim=1) # correct size([batchsize=2, X, 2048])
+        to_regress_embeds = torch.cat([first_input_embeds,img_embeds, second_input_embeds], dim=1) # correct size([batchsize=2, X, 2048])
     
         if labels is not None:
             # get decoder inputs from shifting lm labels to the right
@@ -262,18 +284,20 @@ class DocVQALLM(nn.Module):
     def encode_img(self, images):
 
         image_features = []
-
-        if isinstance(self.vision_tower,CNNEncoder):
-            for image in images:
-                img_embeds = self.vision_tower(image.unsqueeze(0))
-                image_features.append(img_embeds)
-
-            image_features = torch.cat(image_features, dim=0)
-            
         
-        else: # CNN encoder
+        if isinstance(self.vision_tower,CNNEncoder) or isinstance(self.vision_tower,nn.Sequential):
+            images = torch.stack(images)
+            
+            img_embeds = self.vision_tower(images)
+            image_features = self.mm_projector(img_embeds.view(img_embeds.shape[0], -1))
+            image_features = image_features.unsqueeze(-2)
+                
+  
+        
+        else: # CLIP
 
             for image in images:
+
                 img_embeds = self.vision_tower(image.unsqueeze(0), output_hidden_states=True)
                 img_embeds = img_embeds.hidden_states[-1][:, :1,:]
             
@@ -287,15 +311,17 @@ class DocVQALLM(nn.Module):
 
     #@classmethod
     #def from_config(cls):
-    def import_model():
+    def load_pretrained_model(ckpt_path, freeze_linear, vision_tower_type, freeze_visionTower,freeze_llm):
+
         model = DocVQALLM(
-                freeze_linear=False,
-                vision_tower_type="CNN",
+                freeze_linear=freeze_linear,
+                vision_tower_type=vision_tower_type,
+                freeze_visionTower=freeze_visionTower,
+                freeze_llm=freeze_llm,
         )
 
-        ckpt_path = "/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_Clip"
         if ckpt_path:
-            print("Load CLIP-LLM Checkpoint: {}".format(ckpt_path))
+            print("Load Checkpoint: {}".format(ckpt_path))
             ckpt = torch.load(ckpt_path, map_location="cpu")
             msg = model.load_state_dict(ckpt['model'], strict=False)
 

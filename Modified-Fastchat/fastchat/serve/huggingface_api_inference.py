@@ -32,6 +32,7 @@ def main(args, msg, model, tokenizer):
     else: 
         # for inferecne (without fine-tune) we should add: Be short, answer with one word if possible. 
         input_ids = tokenizer(["Be short, answer with one word if possible ### Human: " + msg + " \n ### Assistant: "]).input_ids
+
     
     output_ids = model.generate(
         torch.as_tensor(input_ids).cuda(),

@@ -304,7 +304,7 @@ class SupervisedDataset(Dataset):
         # save to file
         # Make sure only the first process is processing the dataset
         #if dist.get_rank() != 0:
-        #    dist.barrier()
+        #   dist.barrier()
         self.preprocessed_path = preprocessed_path
         if os.path.exists(self.preprocessed_path):
             logging.warning("loading from preprocessed data")
@@ -380,9 +380,30 @@ class SupervisedDataset(Dataset):
             for img in images:
                 img = image_processor.preprocess(img, return_tensors='pt')['pixel_values'][0]
                 processed_images.append(img)
+
+        elif vision_tower_type == "ResNet":   
+                
+            
+            images_rgb = [image.convert('RGB') for image in images]
+
+            rgb_images_array = np.array([np.array(image) for image in images_rgb])
             
 
-        else: # CNN
+            m1,m2,m3 = np.mean(rgb_images_array, axis=(0,1,2))/255.0
+            s1,s2,s3 = np.std(rgb_images_array, axis=(0,1,2))/255.0
+            
+
+            normalize = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[m1,m2,m3], std=[s1,s2,s3])
+                
+            ])
+
+            
+
+            processed_images = [normalize(image) for image in images_rgb]
+
+        else: # CNN 
 
             gray_images_array = np.array([np.array(image) for image in images])
             mean = np.mean(gray_images_array) / 255.0
@@ -481,13 +502,22 @@ def train():
 
     if "CLIP" in training_args.output_dir:
         vision_tower_type = "CLIP"
+
+    elif "ResNet" in training_args.output_dir:
+        vision_tower_type = "ResNet"
     else:
         vision_tower_type = "CNN"
 
     model = DocVQALLM(
                 freeze_linear=False,
                 vision_tower_type=vision_tower_type,
+                freeze_visionTower=False,
+                freeze_llm=True,
             )
+    
+   
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = model.to(device)
     # model = transformers.AutoModelForSeq2SeqLM.from_pretrained(
     #     model_args.model_name_or_path,
     #     cache_dir=training_args.cache_dir,

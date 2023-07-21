@@ -1,8 +1,8 @@
-CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --use-env --nproc_per_node=2 --master_port=9778 /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/fastchat/train/train_flant5_CLIP.py \
+CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch --use-env --nproc_per_node=1 --master_port=9776 /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/fastchat/train/train_flant5_CLIP.py \
     --model_name_or_path google/flan-t5-xl \
     --data_path /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/playground/data/train_pretaskData_reduced.json \
     --bf16 True \
-    --output_dir ./checkpoints/checkpoints_flant5_pretask_20epochs_CNN \
+    --output_dir ./checkpoints/checkpoints_flant5_pretask_20_epochs_ResNet\
     --num_train_epochs 20 \
     --per_device_train_batch_size 2 \
     --per_device_eval_batch_size 2 \
@@ -18,5 +18,5 @@ CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --use-env --nproc_pe
     --logging_steps 1 \
     --tf32 True \
     --model_max_length 2048 \
-    --preprocessed_path ./preprocessed_data/train_processed_pretask_reduced.json \
+    --preprocessed_path ./preprocessed_data/train_processed_pretask_reduced_ResNet_good.json \
     --gradient_checkpointing True \

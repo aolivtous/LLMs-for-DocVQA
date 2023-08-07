@@ -3,7 +3,7 @@ import json
 import math
 from torch.utils.data import DataLoader
 from SP_DocVQA import singlepage_docvqa_collate_fn
-from evaluation import parse_args
+from LLM.Scripts.evaluation_DocVQA import parse_args
 from utils import build_dataset, load_config
 import tqdm
 

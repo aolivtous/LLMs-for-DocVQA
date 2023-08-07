@@ -7,17 +7,9 @@ from SP_DocVQA import singlepage_docvqa_collate_fn
 from evaluation_DocVQA import parse_args
 from utils import build_dataset, load_config
 
-def get_context(words,boxes, withBB):
-    #Append all words
-    context = "I have this document with the following words: "
-    for i,word in enumerate(words):
-        if withBB:
-            context += word + ":(" + str(int(boxes[i][0]*1000)) + ' ' + str(int(boxes[i][1]*1000)) + "), "
-        else:
-            context += word + " "
-    return context
 
-def convert_json_to_new_format(normalizedData, validData, isInference, withBB):
+
+def convert_json_to_new_format(normalizedData, validData,multiWords):
     new_data = []
     # add tqdm to show a progress bar
 
@@ -31,20 +23,43 @@ def convert_json_to_new_format(normalizedData, validData, isInference, withBB):
 
 
         if item['question_id'] in valid_questions_id:
-        #if validData is None:
-            context = get_context(item['words'],item['boxes'], withBB)
+            
+            context_text = ' '.join(item['words'])
+            context = "I have this document with the following words: " + context_text
+            
             query =  context + '. ' + item['questions'] 
         
-            if isInference:
-                answer = ''
-            else :
-                #answer = '. '.join(item['answers']) 
-                answer = item['answers'][0] #only get the first answer
+          
+            answer = item['answers'][0] 
+
+            if answer in query:
+
+                answer_words = answer.split(' ')
+
+                if multiWords:
+                    word = answer
+                else:
+                    word = answer_words[torch.randint(0, len(answer_words), (1,)).item()]
+
+                #check if answer is the start of the query
+                if first_part_text == '':
+                    print('answer is the start of the query')
+
+                if second_part_text == '':
+                    print('answer is the end of the query')
+
+            else:
+                #choose a random word from the context 
+                context_words = item['words']
+                word = context_words[torch.randint(0, len(context_words), (1,)).item()]
+           
+            first_part_text = query.split(word, 1)[0] #split only once
+            second_part_text = query.split(word, 1)[1] 
 
             conversation = [
                 {
                     'from': 'human',
-                    'value': query
+                    'value': [first_part_text, second_part_text]
                 },
                 {
                     'from': 'gpt',
@@ -58,7 +73,11 @@ def convert_json_to_new_format(normalizedData, validData, isInference, withBB):
             }
 
             new_data.append(new_item)
-    
+
+            #process crop of the words to obtain the embeddings 
+            #np.where(np.array(context_text) == word)[0]
+
+            #/data/users/aolivera/preprocessCLIP/split/
     
     return new_data
 
@@ -69,11 +88,8 @@ if __name__ == "__main__":
     # Add arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--split', type=str, default='val', help='split to use')
-    parser.add_argument('--getTrain', type=bool, default=True, help='get the train data')
-    parser.add_argument('--output_file_withAnswers', type=str, default='val_validData.json', help='path of the output JSON file that saves the context + questions in the FastChat format and the answers')
-    parser.add_argument('--output_file_forInference', type=str, default='val_validQuestions.json', help='path of the output JSON file that saves the context + questions in the FastChat ')
-    parser.add_argument('--validQuestions', type=str, default='/home/aolivera/TFM-LLM/LLM/Data/val_validData_BB.json', help='path of the config file')
-    parser.add_argument('--withBB', type=bool, default=False, help='use also the bounding boxes')
+    parser.add_argument('--output_file_withAnswers', type=str, default='val_visualData.json', help='path of the output JSON file that saves the context + questions in the FastChat format and the answers')
+    parser.add_argument('--validQuestions', type=str, default='/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/playground/data/val_pretaskData.json', help='path of the config file')
     args = parser.parse_args()
 
     #load npy file

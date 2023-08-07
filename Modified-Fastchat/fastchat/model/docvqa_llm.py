@@ -1,5 +1,6 @@
 import logging
 import random
+from tokenizers import AddedToken
 
 import torch
 from torch.cuda.amp import autocast as autocast
@@ -12,16 +13,14 @@ import random
 from torch.nn import CrossEntropyLoss
 from transformers.modeling_outputs import Seq2SeqLMOutput
 import logging
-from PIL import Image
 
 from transformers import CLIPVisionModel
-from typing import Dict, Optional, Sequence
-from torch.utils.data import Dataset
-from transformers import Trainer, AddedToken
+from typing import Optional
 
-from fastchat.model.model_adapter import get_conversation_template
-from torchvision import models, transforms
+from torchvision import models
 
+from huggingface_hub import PyTorchModelHubMixin
+from fastchat.model import load_model
 
 IGNORE_INDEX = -100
 DEFAULT_PAD_TOKEN = "[PAD]"
@@ -59,39 +58,7 @@ class TrainingArguments(transformers.TrainingArguments):
     )
 
 
-class CNNEncoder(nn.Module):
-    def __init__(self):
-        super(CNNEncoder, self).__init__()
-        
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1)
-        self.relu = nn.ReLU()
-        self.avgpool = nn.AvgPool2d(kernel_size=2, stride=2)
-        
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
-
-        
-        self.fc1 = nn.Linear(64 * 56 * 56, 2048)
-        
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.relu(x)
-        x = self.avgpool(x)
-        
-        x = self.conv2(x)
-        x = self.relu(x)
-        x = self.avgpool(x)
-        
-        x = x.view(x.size(0), -1)
-        
-        x = self.fc1(x) # [batch_size, 2048]
-
-        x = x.unsqueeze(1) # [batch_size, 1, 2048]
-        
-        return x
-
-
-
-class DocVQALLM(nn.Module):
+class DocVQALLM(nn.Module, PyTorchModelHubMixin):
 
     def __init__(
         self,
@@ -103,10 +70,9 @@ class DocVQALLM(nn.Module):
     ):
         super().__init__()
 
-        # self.tokenizer = self.init_tokenizer()
         
         print('Loading visual encoder')
-        #self.visual_encoder = CNNEncoder(embed_dim=768)
+
 
         if vision_tower_type == "CLIP":
 
@@ -138,12 +104,8 @@ class DocVQALLM(nn.Module):
             else:
                 for name, param in self.vision_tower.named_parameters():
                     param.requires_grad = True
+        
 
-        else: # CNN
-
-            self.vision_tower = CNNEncoder()
-
-          
         """if pretrain_mm_mlp_adapter is not None:
         mm_projector_weights = torch.load(pretrain_mm_mlp_adapter, map_location='cpu')
         self.mm_projector.load_state_dict({k.split('.')[-1]: v for k, v in mm_projector_weights.items()})"""
@@ -155,26 +117,29 @@ class DocVQALLM(nn.Module):
 
         print('Loading LLM')
 
-        self.llm_model = transformers.AutoModelForSeq2SeqLM.from_pretrained(
+        """self.llm_model = transformers.AutoModelForSeq2SeqLM.from_pretrained(
             model_args.model_name_or_path,
             cache_dir=training_args.cache_dir,
-        )
+        )"""
 
-        self.tokenizer = transformers.T5Tokenizer.from_pretrained(
+        
+        self.llm_model, _ = load_model(model_args.model_name_or_path, "cuda" ,1)
+
+        """self.tokenizer = transformers.T5Tokenizer.from_pretrained(
             model_args.model_name_or_path,
             cache_dir=training_args.cache_dir,
             model_max_length=training_args.model_max_length,
             padding_side="right",
             use_fast=False,
         )
-
+        
         smart_tokenizer_and_embedding_resize(
             special_tokens_dict=dict(pad_token=DEFAULT_PAD_TOKEN),
             other_tokens=["<", "{", "\n", "}", "`", " ", "\\", "^", "\t"],
             tokenizer=self.tokenizer,
             model=self.llm_model,
-        )
-
+        )"""
+    
         #frize the llm model    
         if freeze_llm:
             for name, param in self.llm_model.named_parameters():
@@ -187,10 +152,18 @@ class DocVQALLM(nn.Module):
         if vision_tower_type == "CLIP" or vision_tower_type == "ResNet": 
             print('Loading projection layer')
             self.mm_projector = nn.Linear(self.vision_tower_inFeatures, self.llm_model.config.hidden_size)
+
+            if freeze_linear:
+                for name, param in self.mm_projector.named_parameters():
+                    param.requires_grad = False
+            else:
+                for name, param in self.mm_projector.named_parameters():
+                    param.requires_grad = True
+                    
             #move the projection layer to the device
             self.mm_projector.to(self.llm_model.device)
-        
-        #move vision tower to the device
+
+
         self.vision_tower.to(self.llm_model.device)
         print('Loading model done')
        
@@ -199,19 +172,29 @@ class DocVQALLM(nn.Module):
     def forward(self, input_ids, images,labels,attention_mask):
         # load a tensor of images [batch_size, 3, 224, 224] for ResNet
         
-        img_embeds = self.encode_img(images) #What do we do with the attentions? -
-
-        # remove the last token from the input_ids
-        first_input_ids = input_ids[:, 0:15] # ### Human: Type the folowing word:
-        second_input_ids = input_ids[:, 15:] # ### Assistant: </s>
+        img_embeds = self.encode_img(images) 
         
-        # remove eos token
-        first_input_embeds = self.llm_model.shared(first_input_ids)
-        second_input_embeds = self.llm_model.shared(second_input_ids)
+        if 6632 in input_ids: ### Human: Type just the following text: \n### Assistant: </s>"
+            #create a tensor of size batch_size with value 32106 (the id of the space token)
+            space_token = torch.full((input_ids.shape[0], 1), 32106, dtype=torch.long).cuda()
+            
+            input_ids = torch.cat([input_ids[:, 0:16], space_token,input_ids[:, 16:]],  dim=1) # Add space so that the image embedding and the second part of the phrase are separated
+            
+            input_embeds = self.llm_model.shared(input_ids)
+            first_input_embeds = input_embeds[:, :17, :] #include the space token
+            second_input_embeds = input_embeds[:, 17:, :]
 
+        else:  ### Human: What does it say here: . Answer with just one word\n### Assistant: </s>"
+
+            input_embeds = self.llm_model.shared(input_ids)
+            first_input_embeds = input_embeds[:, :17, :] 
+            second_input_embeds = input_embeds[:, 17:, :]
 
         to_regress_embeds = torch.cat([first_input_embeds,img_embeds, second_input_embeds], dim=1) # correct size([batchsize=2, X, 2048])
-    
+        
+        #extend all labels with -100 so that the eos token is not lost
+        labels = torch.cat([labels, torch.full((labels.shape[0], 1), -100, dtype=torch.long).cuda()],  dim=1)
+        
         if labels is not None:
             # get decoder inputs from shifting lm labels to the right
             decoder_input_ids = self.llm_model._shift_right(labels)
@@ -224,6 +207,7 @@ class DocVQALLM(nn.Module):
 
         # lm head projection
         #outputs = self.llm_model.lm_head(decoded_tokens["last_hidden_state"])
+        attention_mask = None
 
         encoded_tokens = self.llm_model.encoder(
             input_ids=None,
@@ -235,8 +219,6 @@ class DocVQALLM(nn.Module):
             return_dict=True,
         )
 
-        # what about the attention mask????
-        
         decoded_tokens = self.llm_model.decoder(
             input_ids=decoder_input_ids,
             attention_mask=None,
@@ -255,15 +237,16 @@ class DocVQALLM(nn.Module):
         #Added from modeling_t5.py T5ForConditionalGeneration
 
         lm_logits = self.llm_model.lm_head(decoded_tokens["last_hidden_state"])
-
+        #import pdb; pdb.set_trace()
         loss = None
+        
         if labels is not None:
             loss_fct = CrossEntropyLoss(ignore_index=-100)
             # move labels to correct device to enable PP
             labels = labels.to(lm_logits.device)
             loss = loss_fct(lm_logits.view(-1, lm_logits.size(-1)), labels.view(-1))
             #loss = loss_fct(lm_logits, labels)
-
+        #import pdb; pdb.set_trace()
         return Seq2SeqLMOutput(
             loss=loss,
             logits=lm_logits,
@@ -285,17 +268,15 @@ class DocVQALLM(nn.Module):
 
         image_features = []
         
-        if isinstance(self.vision_tower,CNNEncoder) or isinstance(self.vision_tower,nn.Sequential):
+        if isinstance(self.vision_tower,nn.Sequential): # ResNet
             images = torch.stack(images)
             
             img_embeds = self.vision_tower(images)
             image_features = self.mm_projector(img_embeds.view(img_embeds.shape[0], -1))
             image_features = image_features.unsqueeze(-2)
                 
-  
-        
         else: # CLIP
-
+            
             for image in images:
 
                 img_embeds = self.vision_tower(image.unsqueeze(0), output_hidden_states=True)
@@ -308,24 +289,14 @@ class DocVQALLM(nn.Module):
 
         return image_features
 
+    def move_to_cuda(self):
 
-    #@classmethod
-    #def from_config(cls):
-    def load_pretrained_model(ckpt_path, freeze_linear, vision_tower_type, freeze_visionTower,freeze_llm):
+        self.llm_model.cuda()
+        self.mm_projector.cuda()
+        self.vision_tower.cuda()
 
-        model = DocVQALLM(
-                freeze_linear=freeze_linear,
-                vision_tower_type=vision_tower_type,
-                freeze_visionTower=freeze_visionTower,
-                freeze_llm=freeze_llm,
-        )
+        return self
 
-        if ckpt_path:
-            print("Load Checkpoint: {}".format(ckpt_path))
-            ckpt = torch.load(ckpt_path, map_location="cpu")
-            msg = model.load_state_dict(ckpt['model'], strict=False)
-
-        return model
 
 def smart_tokenizer_and_embedding_resize(
         special_tokens_dict: Dict,
@@ -333,11 +304,6 @@ def smart_tokenizer_and_embedding_resize(
         tokenizer: transformers.PreTrainedTokenizer,
         model: transformers.PreTrainedModel,
         ):
-        """Resize tokenizer and embedding.
-
-        Note: This is the unoptimized version that may make your embedding size not be divisible by 64.
-
-        """
         num_new_tokens = tokenizer.add_special_tokens(special_tokens_dict)
         for new_token in other_tokens:
             num_new_tokens += tokenizer.add_tokens(AddedToken(new_token, normalized=False))

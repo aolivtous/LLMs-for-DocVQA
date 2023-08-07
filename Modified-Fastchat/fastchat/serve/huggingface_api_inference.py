@@ -70,7 +70,7 @@ if __name__ == "__main__":
     #parser.add_argument("--model", type=str, default="/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_8epochs/checkpoint-2700") 
    
     parser.add_argument("--json_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Data/val_allQuestions_latin_spaces.json")
-    parser.add_argument("--output_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Results/inference/val_inference_latin_spaces_8epochs.json")
+    parser.add_argument("--output_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Results/inference/val_inference_latin_spaces_8epochs_prova.json")
     args = parser.parse_args()
 
     with open(args.json_file) as f:

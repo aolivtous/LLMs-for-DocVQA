@@ -63,7 +63,7 @@ if __name__ == "__main__":
     parser.add_argument("--repetition_penalty", type=float, default=1.0)
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--debug", action="store_true")
-    parser.add_argument("--message", type=str, default="Hello! Who are you?")
+    parser.add_argument("--message", type=str, default="Type just the following text: husodasda45")
     args = parser.parse_args()
 
     main(args)

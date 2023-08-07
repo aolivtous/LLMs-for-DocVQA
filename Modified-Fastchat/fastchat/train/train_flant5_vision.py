@@ -22,7 +22,7 @@ import json
 import logging
 import pathlib
 from typing import Any, Dict, Optional, Sequence
-from PIL import Image
+
 import numpy as np
 import torch
 import torch.distributed as dist
@@ -30,6 +30,7 @@ import torchvision.transforms as transforms
 import tqdm
 import transformers
 from transformers import CLIPImageProcessor 
+from PIL import Image
 from torch.utils.data import Dataset
 from transformers import Trainer, AddedToken
 from transformers.models.t5 import modeling_t5
@@ -85,6 +86,7 @@ class TrainingArguments(transformers.TrainingArguments):
 
 def safe_save_model_for_hf_trainer(trainer: transformers.Trainer, output_dir: str):
     """Collects the state dict and dump to disk."""
+    print("Saving model to {}".format(output_dir))
     state_dict = trainer.model.state_dict()
     if trainer.args.should_save:
         #cpu_state_dict = {key: value.cpu() for key, value in state_dict.items()} #MODIFIED
@@ -304,7 +306,7 @@ class SupervisedDataset(Dataset):
         # save to file
         # Make sure only the first process is processing the dataset
         #if dist.get_rank() != 0:
-        #   dist.barrier()
+        #  dist.barrier()
         self.preprocessed_path = preprocessed_path
         if os.path.exists(self.preprocessed_path):
             logging.warning("loading from preprocessed data")
@@ -347,6 +349,8 @@ class SupervisedDataset(Dataset):
         full_data_dict["labels"] = copy.deepcopy(data_dict["labels"])
         full_data_dict["images"] = self.load_images(data_dict["images"],vision_tower_type)
 
+        #import pdb; pdb.set_trace()
+
         # Shuffle data to see more conversations, if only train on partial data
         temp = list(zip(full_data_dict["input_ids"], full_data_dict["labels"], full_data_dict["images"]))
         random.shuffle(temp)
@@ -372,7 +376,7 @@ class SupervisedDataset(Dataset):
             image = Image.open(img_source).resize((224, 224))
             images.append(image)
 
-            
+        #import pdb; pdb.set_trace()
         if vision_tower_type == "CLIP": 
 
             image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32")
@@ -383,45 +387,27 @@ class SupervisedDataset(Dataset):
 
         elif vision_tower_type == "ResNet":   
                 
-            
             images_rgb = [image.convert('RGB') for image in images]
-
-            rgb_images_array = np.array([np.array(image) for image in images_rgb])
-            
-
-            m1,m2,m3 = np.mean(rgb_images_array, axis=(0,1,2))/255.0
-            s1,s2,s3 = np.std(rgb_images_array, axis=(0,1,2))/255.0
-            
 
             normalize = transforms.Compose([
                 transforms.ToTensor(),
-                transforms.Normalize(mean=[m1,m2,m3], std=[s1,s2,s3])
+                transforms.Normalize(mean=[0.760289597495248,0.760289597495248,0.760289597495248], std=[0.3106214631171957,0.3106214631171957,0.3106214631171957])
                 
             ])
 
-            
-
             processed_images = [normalize(image) for image in images_rgb]
 
-        else: # CNN 
+        else: 
 
-            gray_images_array = np.array([np.array(image) for image in images])
-            mean = np.mean(gray_images_array) / 255.0
-            std = np.std(gray_images_array) / 255.0
-            
-            # Define the preprocessing transformations
-            preprocess = transforms.Compose([
-                transforms.Resize((224, 224)),  # Resize the image to 224x224
-                transforms.ToTensor(),  # Convert the image to a tensor
-                transforms.Normalize(mean=[mean], std=[std])  # Normalize the image
-            ])
-
-            processed_images = [preprocess(image) for image in images]
-            
+            print("Wrong vision tower type")
+        
+        #import pdb; pdb.set_trace()
+        
         return processed_images
     
 
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
+        #import pdb; pdb.set_trace()
 
         return dict(input_ids=self.input_ids[i], images= self.images[i], labels=self.labels[i])
 
@@ -451,7 +437,7 @@ class DataCollatorForSupervisedDataset(object):
         labels = torch.nn.utils.rnn.pad_sequence(
             labels, batch_first=True, padding_value=IGNORE_INDEX
         )
-
+        
         images = [instance["images"] for instance in instances]
 
         ret = dict(
@@ -506,7 +492,8 @@ def train():
     elif "ResNet" in training_args.output_dir:
         vision_tower_type = "ResNet"
     else:
-        vision_tower_type = "CNN"
+        print("Wrong vision tower type")
+        vision_tower_type = None
 
     model = DocVQALLM(
                 freeze_linear=False,
@@ -518,10 +505,11 @@ def train():
    
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
-    # model = transformers.AutoModelForSeq2SeqLM.from_pretrained(
-    #     model_args.model_name_or_path,
-    #     cache_dir=training_args.cache_dir,
-    # )
+
+    """model_tokenizer = transformers.AutoModelForSeq2SeqLM.from_pretrained(
+         model_args.model_name_or_path,
+         cache_dir=training_args.cache_dir,
+    )"""
 
     # Dacheng: Note we can only use T5Tokenizer, otherwise it will prepend
     # a space before special tokens.
@@ -545,14 +533,17 @@ def train():
     trainer = Trainer(
         model=model, tokenizer=tokenizer, args=training_args, **data_module
     )
-    
 
     if list(pathlib.Path(training_args.output_dir).glob("checkpoint-*")):
+        print("Found existing checkpoint, resuming training")
         trainer.train(resume_from_checkpoint=True)
     else:
+        print("No existing checkpoint, starting training from scratch")
         trainer.train()
     trainer.save_state()
     safe_save_model_for_hf_trainer(trainer=trainer, output_dir=training_args.output_dir)
+
+    
 
 
 if __name__ == "__main__":

@@ -1,0 +1,23 @@
+CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch --use-env --nproc_per_node=1 --master_port=9776 /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/fastchat/train/train_flant5_vision.py \
+    --model_name_or_path /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_8epochs \
+    --data_path /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/playground/data/train_pretaskData_reduced.json\
+    --bf16 True \
+    --output_dir /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_pretask_35_epochs_CLIP_unfrozen_T5w_tok\
+    --num_train_epochs 35 \
+    --per_device_train_batch_size 2 \
+    --per_device_eval_batch_size 2 \
+    --gradient_accumulation_steps 16 \
+    --evaluation_strategy "epoch" \
+    --save_strategy "epoch" \
+    --metric_for_best_model "eval_loss" \
+    --save_total_limit 2 \
+    --learning_rate 2e-5 \
+    --weight_decay 0. \
+    --warmup_ratio 0.03 \
+    --lr_scheduler_type "cosine" \
+    --logging_steps 2 \
+    --tf32 True \
+    --model_max_length 2048 \
+    --metric_for_best_model "eval_loss" \
+    --preprocessed_path ./preprocessed_data/train_processed_pretask_reduced2.json \
+    --gradient_checkpointing True \

@@ -168,7 +168,7 @@ if __name__ == "__main__":
     with open(data_args.data_path) as f:
         data = json.load(f)
 
-    model = DocVQALLM.from_pretrained("/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_pretask_CLIP_unfrozen_T5g_new_weights/checkpoint-32500",freeze_linear=True, vision_tower_type="CLIP",freeze_visionTower=True, freeze_llm=True)
+    model = DocVQALLM.from_pretrained("/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_pretask_CLIP_unfrozen_T5g_new_weights/checkpoint-43750",freeze_linear=True, vision_tower_type="CLIP",freeze_visionTower=True, freeze_llm=True)
 
     model = model.move_to_cuda()
     

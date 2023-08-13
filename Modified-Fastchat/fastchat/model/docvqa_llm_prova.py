@@ -148,7 +148,7 @@ class DocVQALLM(nn.Module, PyTorchModelHubMixin):
 
         
         self.tokenizer = transformers.T5Tokenizer.from_pretrained(
-            'google/flan-t5-xl',
+            model_args.model_name_or_path, #CANVIAT
             cache_dir=training_args.cache_dir,
             model_max_length=training_args.model_max_length,
             padding_side="right",

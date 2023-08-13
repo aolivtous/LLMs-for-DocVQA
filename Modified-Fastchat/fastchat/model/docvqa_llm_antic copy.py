@@ -1,5 +1,4 @@
 import logging
-import os
 import random
 from tokenizers import AddedToken
 
@@ -66,7 +65,7 @@ class DocVQALLM(nn.Module, PyTorchModelHubMixin):
         freeze_linear=False,
         vision_tower_type="",
         freeze_visionTower=False,
-        freeze_llm=True
+        freeze_llm=True,
         
     ):
         super().__init__()
@@ -74,11 +73,15 @@ class DocVQALLM(nn.Module, PyTorchModelHubMixin):
         
         print('Loading visual encoder')
 
+
         if vision_tower_type == "CLIP":
 
             self.vision_tower = CLIPVisionModel.from_pretrained("openai/clip-vit-base-patch32")
             self.vision_tower_inFeatures = self.vision_tower.config.hidden_size
 
+            #device = "cuda" if torch.cuda.is_available() else "cpu"
+            #self.vision_tower, preprocess = clip.load("ViT-B/32", device=device)
+            #self.vision_tower.requires_grad_(False)
             if freeze_visionTower:
                 for name, param in self.vision_tower.named_parameters():
                     param.requires_grad = False
@@ -103,23 +106,41 @@ class DocVQALLM(nn.Module, PyTorchModelHubMixin):
                     param.requires_grad = True
         
 
+        """if pretrain_mm_mlp_adapter is not None:
+        mm_projector_weights = torch.load(pretrain_mm_mlp_adapter, map_location='cpu')
+        self.mm_projector.load_state_dict({k.split('.')[-1]: v for k, v in mm_projector_weights.items()})"""
+
+
+
         parser = transformers.HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
         print('Loading LLM')
-        #check if the data path is empty, if so load the model from huggingface
-       
-        if model_args.model_name_or_path == "google/flan-t5-xl" :
-            print('Loading T5 model from huggingface')
-            self.llm_model = transformers.AutoModelForSeq2SeqLM.from_pretrained(
-            model_args.model_name_or_path,
-            cache_dir=training_args.cache_dir)
-        
-        else:
-            print('Loading T5 model from local')
-            self.llm_model, _ = load_model(model_args.model_name_or_path, "cuda" ,1)
 
-        #freeze the llm model    
+        """self.llm_model = transformers.AutoModelForSeq2SeqLM.from_pretrained(
+            model_args.model_name_or_path,
+            cache_dir=training_args.cache_dir,
+        )"""
+
+        
+        self.llm_model, _ = load_model(model_args.model_name_or_path, "cuda" ,1)
+
+        self.tokenizer = transformers.T5Tokenizer.from_pretrained( #SOBRA
+            model_args.model_name_or_path,
+            cache_dir=training_args.cache_dir,
+            model_max_length=training_args.model_max_length,
+            padding_side="right",
+            use_fast=False,
+        )
+        
+        smart_tokenizer_and_embedding_resize( #SOBRA
+            special_tokens_dict=dict(pad_token=DEFAULT_PAD_TOKEN),
+            other_tokens=["<", "{", "\n", "}", "`", " ", "\\", "^", "\t"],
+            tokenizer=self.tokenizer,
+            model=self.llm_model,
+        )
+    
+        #frize the llm model    
         if freeze_llm:
             for name, param in self.llm_model.named_parameters():
                 param.requires_grad = False
@@ -145,30 +166,13 @@ class DocVQALLM(nn.Module, PyTorchModelHubMixin):
 
         self.vision_tower.to(self.llm_model.device)
         print('Loading model done')
+       
 
-        
-        self.tokenizer = transformers.T5Tokenizer.from_pretrained(
-            'google/flan-t5-xl',
-            cache_dir=training_args.cache_dir,
-            model_max_length=training_args.model_max_length,
-            padding_side="right",
-            use_fast=False,
-        )
-        
-        smart_tokenizer_and_embedding_resize( 
-            special_tokens_dict=dict(pad_token=DEFAULT_PAD_TOKEN),
-            other_tokens=["<", "{", "\n", "}", "`", " ", "\\", "^", "\t"],
-            tokenizer=self.tokenizer,
-            model=self.llm_model,
-        )
-    
-    
+
     def forward(self, input_ids, images,labels,attention_mask):
         # load a tensor of images [batch_size, 3, 224, 224] for ResNet
         
-        img_embeds_tower = self.encode_img_visionTower(images)
-
-        img_embeds = self.mm_projector(img_embeds_tower) 
+        img_embeds = self.encode_img(images) 
         
         if 6632 in input_ids: ### Human: Type just the following text: \n### Assistant: </s>"
             #create a tensor of size batch_size with value 32106 (the id of the space token)
@@ -241,7 +245,6 @@ class DocVQALLM(nn.Module, PyTorchModelHubMixin):
             # move labels to correct device to enable PP
             labels = labels.to(lm_logits.device)
             loss = loss_fct(lm_logits.view(-1, lm_logits.size(-1)), labels.view(-1))
-           
             #loss = loss_fct(lm_logits, labels)
         #import pdb; pdb.set_trace()
         return Seq2SeqLMOutput(
@@ -256,25 +259,33 @@ class DocVQALLM(nn.Module, PyTorchModelHubMixin):
             encoder_attentions=encoded_tokens.attentions,
         )
 
+
+
     def gradient_checkpointing_enable(self): # TO DO #############
         return True # If I don't have this method the trainer.py will complain
     
-    def encode_img_visionTower(self, images):
+    def encode_img(self, images):
 
-        if isinstance(self.vision_tower, nn.Sequential): # ResNet
+        image_features = []
+        
+        if isinstance(self.vision_tower,nn.Sequential): # ResNet
             images = torch.stack(images)
+            
             img_embeds = self.vision_tower(images)
-            image_features = img_embeds.view(img_embeds.shape[0], -1)
+            image_features = self.mm_projector(img_embeds.view(img_embeds.shape[0], -1))
+            image_features = image_features.unsqueeze(-2)
+                
         else: # CLIP
-            image_features_list = []
+            
             for image in images:
-                # Cast image to float32
-                image = image.type(torch.float32)
-                img_embeds = self.vision_tower(image.unsqueeze(0), output_hidden_states=True)
-                img_embeds = img_embeds.hidden_states[-1][:, :1, :]
-                image_features_list.append(img_embeds)
 
-            image_features = torch.cat(image_features_list, dim=0)
+                img_embeds = self.vision_tower(image.unsqueeze(0), output_hidden_states=True)
+                img_embeds = img_embeds.hidden_states[-1][:, :1,:]
+            
+                image_features.append(img_embeds)
+
+            image_features = torch.cat(image_features, dim=0)
+            image_features = self.mm_projector(image_features)
 
         return image_features
 
@@ -283,30 +294,32 @@ class DocVQALLM(nn.Module, PyTorchModelHubMixin):
         self.llm_model.cuda()
         self.mm_projector.cuda()
         self.vision_tower.cuda()
+
         return self
 
+
 def smart_tokenizer_and_embedding_resize(
-    special_tokens_dict: Dict,
-    other_tokens,
-    tokenizer: transformers.PreTrainedTokenizer,
-    model: transformers.PreTrainedModel,
-    ):
-    num_new_tokens = tokenizer.add_special_tokens(special_tokens_dict)
-    for new_token in other_tokens:
-        num_new_tokens += tokenizer.add_tokens(AddedToken(new_token, normalized=False))
+        special_tokens_dict: Dict,
+        other_tokens,
+        tokenizer: transformers.PreTrainedTokenizer,
+        model: transformers.PreTrainedModel,
+        ):
+        num_new_tokens = tokenizer.add_special_tokens(special_tokens_dict)
+        for new_token in other_tokens:
+            num_new_tokens += tokenizer.add_tokens(AddedToken(new_token, normalized=False))
 
-    model.resize_token_embeddings(len(tokenizer))
+        model.resize_token_embeddings(len(tokenizer))
 
-    if num_new_tokens > 0:
-        input_embeddings = model.get_input_embeddings().weight.data
-        output_embeddings = model.get_output_embeddings().weight.data
+        if num_new_tokens > 0:
+            input_embeddings = model.get_input_embeddings().weight.data
+            output_embeddings = model.get_output_embeddings().weight.data
 
-        input_embeddings_avg = input_embeddings[:-num_new_tokens].mean(
-            dim=0, keepdim=True
-        )
-        output_embeddings_avg = output_embeddings[:-num_new_tokens].mean(
-            dim=0, keepdim=True
-        )
+            input_embeddings_avg = input_embeddings[:-num_new_tokens].mean(
+                dim=0, keepdim=True
+            )
+            output_embeddings_avg = output_embeddings[:-num_new_tokens].mean(
+                dim=0, keepdim=True
+            )
 
-        input_embeddings[-num_new_tokens:] = input_embeddings_avg
-        output_embeddings[-num_new_tokens:] = output_embeddings_avg
+            input_embeddings[-num_new_tokens:] = input_embeddings_avg
+            output_embeddings[-num_new_tokens:] = output_embeddings_avg

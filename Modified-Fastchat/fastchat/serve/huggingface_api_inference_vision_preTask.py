@@ -106,7 +106,7 @@ def main(img_path, model, tokenizer):
     img.cuda()
                  
 
-    if "toy5" in training_args.output_dir:
+    """if "toy5" in training_args.output_dir:
         #option5
         input_ids = tokenizer(["### Human: What does it say here: . Answer with just one word\n### Assistant:  </s>"]).input_ids 
         
@@ -115,23 +115,24 @@ def main(img_path, model, tokenizer):
         input_embeds = model.llm_model.shared(input_ids)
         
         first_input_embeds = input_embeds[:, :17, :].cuda()
-        second_input_embeds = input_embeds[:, 17:, :].cuda()
+        second_input_embeds = input_embeds[:, 17:, :].cuda()"""
         
     
-    else: #option1
-        input_ids = tokenizer(["### Human: Type just the following text:  \n### Assistant:  </s>"]).input_ids 
-        #input_ids = [[1713, 30345, 32106, 3892, 10, 32106, 6632, 32106, 131, 32106, 8, 32106, 826, 32106, 1499, 10, 32106, 32103, 1713, 30345, 32106, 9255, 10, 32106, 1]]
-        input_ids = torch.tensor(input_ids).cuda()            
-        input_embeds = model.llm_model.shared(input_ids)
-        
-        first_input_embeds = input_embeds[:, :17, :].cuda()
-        second_input_embeds = input_embeds[:, 17:, :].cuda()
+    input_ids = tokenizer(["### Human: Type just the following text:  \n### Assistant:  </s>"]).input_ids 
+    #input_ids = [[1713, 30345, 32106, 3892, 10, 32106, 6632, 32106, 131, 32106, 8, 32106, 826, 32106, 1499, 10, 32106, 32103, 1713, 30345, 32106, 9255, 10, 32106, 1]]
+    input_ids = torch.tensor(input_ids).cuda()            
+    input_embeds = model.llm_model.shared(input_ids)
+    
+    first_input_embeds = input_embeds[:, :17, :].cuda()
+    second_input_embeds = input_embeds[:, 17:, :].cuda()
 
     #transform list of images to tensor
     images = torch.stack([img])
     images = images.to('cuda')
     
-    img_embeds = DocVQALLM.encode_img(model,images)[0].cuda()
+    img_embeds_tower = DocVQALLM.encode_img_visionTower(model,images)[0].cuda()
+           
+    img_embeds = model.mm_projector(img_embeds_tower) 
     img_embeds = img_embeds.unsqueeze(0) #batch size dim 1
 
     to_regress_embeds = torch.cat([first_input_embeds,img_embeds, second_input_embeds], dim=1)
@@ -167,14 +168,13 @@ if __name__ == "__main__":
     with open(data_args.data_path) as f:
         data = json.load(f)
 
-
-    model = DocVQALLM.from_pretrained("/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_pretask_10_epochs_CLIP_unfrozen_padToken/checkpoint-30000",freeze_linear=True, vision_tower_type="CLIP",freeze_visionTower=True, freeze_llm=True)
-    #model2 = DocVQALLM(freeze_linear=True, vision_tower_type="CLIP",freeze_visionTower=True, freeze_llm=True)
+    model = DocVQALLM.from_pretrained("/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_pretask_CLIP_unfrozen_T5g_new_weights/checkpoint-32500",freeze_linear=True, vision_tower_type="CLIP",freeze_visionTower=True, freeze_llm=True)
 
     model = model.move_to_cuda()
     
     tokenizer = transformers.T5Tokenizer.from_pretrained(
-        model_args.model_name_or_path,
+        #model_args.model_name_or_path,
+        'google/flan-t5-xl',
         cache_dir=training_args.cache_dir,
         model_max_length=training_args.model_max_length,
         padding_side="right",

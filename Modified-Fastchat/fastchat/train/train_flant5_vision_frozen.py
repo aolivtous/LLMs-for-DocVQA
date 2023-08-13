@@ -21,20 +21,32 @@ import random
 import json
 import logging
 import pathlib
-from typing import Dict, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence
 
+import numpy as np
 import torch
 import torch.distributed as dist
-
+import torchvision.transforms as transforms
+import tqdm
 import transformers
+from transformers import CLIPImageProcessor 
+from PIL import Image
 from torch.utils.data import Dataset
 from transformers import Trainer, AddedToken
+from transformers.models.t5 import modeling_t5
 
 from fastchat.model.model_adapter import get_conversation_template
 
 default_conversation = get_conversation_template("t5")
 
 # TODO: import and use code from ../data/dataset.py
+
+import sys
+# caution: path[0] is reserved for script path (or '' in REPL)
+sys.path.insert(1, '/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/fastchat/model')
+
+from docvqa_llm_vision_frozen import DocVQALLM, smart_tokenizer_and_embedding_resize
+
 
 IGNORE_INDEX = -100
 DEFAULT_PAD_TOKEN = "[PAD]"
@@ -74,6 +86,7 @@ class TrainingArguments(transformers.TrainingArguments):
 
 def safe_save_model_for_hf_trainer(trainer: transformers.Trainer, output_dir: str):
     """Collects the state dict and dump to disk."""
+    print("Saving model to {}".format(output_dir))
     state_dict = trainer.model.state_dict()
     if trainer.args.should_save:
         #cpu_state_dict = {key: value.cpu() for key, value in state_dict.items()} #MODIFIED
@@ -82,39 +95,7 @@ def safe_save_model_for_hf_trainer(trainer: transformers.Trainer, output_dir: st
         trainer._save(output_dir, state_dict=cpu_state_dict)  # noqa
 
 
-def smart_tokenizer_and_embedding_resize(
-    special_tokens_dict: Dict,
-    other_tokens,
-    tokenizer: transformers.PreTrainedTokenizer,
-    model: transformers.PreTrainedModel,
-):
-    """Resize tokenizer and embedding.
-
-    Note: This is the unoptimized version that may make your embedding size not be divisible by 64.
-
-    """
-    num_new_tokens = tokenizer.add_special_tokens(special_tokens_dict)
-    for new_token in other_tokens:
-        num_new_tokens += tokenizer.add_tokens(AddedToken(new_token, normalized=False))
-
-    model.resize_token_embeddings(len(tokenizer))
-
-    if num_new_tokens > 0:
-        input_embeddings = model.get_input_embeddings().weight.data
-        output_embeddings = model.get_output_embeddings().weight.data
-
-        input_embeddings_avg = input_embeddings[:-num_new_tokens].mean(
-            dim=0, keepdim=True
-        )
-        output_embeddings_avg = output_embeddings[:-num_new_tokens].mean(
-            dim=0, keepdim=True
-        )
-
-        input_embeddings[-num_new_tokens:] = input_embeddings_avg
-        output_embeddings[-num_new_tokens:] = output_embeddings_avg
-
-
-def _tokenize_fn(
+def _tokenize_fn( 
     strings: Sequence[str], tokenizer: transformers.PreTrainedTokenizer
 ) -> Dict:
     """Tokenize a list of strings."""
@@ -138,6 +119,7 @@ def _tokenize_fn(
         labels=labels,
         input_ids_lens=input_ids_lens,
         labels_lens=labels_lens,
+        images=None,
     )
 
 
@@ -203,7 +185,7 @@ def _add_speaker_and_signal(header, source, get_conversation=True):
                     BEGIN_SIGNAL
                     + roles.get(sentence_from, unknown_role)
                     + ": "
-                    + sentence["value"]
+                    + sentence["value"][0] + sentence["value"][1] #MODIFIED
                     + END_SIGNAL
                     + BEGIN_SIGNAL
                     + roles.get(next_sentence["from"].lower(), unknown_role)
@@ -222,6 +204,10 @@ def _add_speaker_and_signal(header, source, get_conversation=True):
 
 def preprocess(
     sources: Sequence[str],
+    imgSources: Sequence[str],
+    documents: Sequence[str],
+    start_idx: Sequence[str],
+    end_idx: Sequence[str],
     tokenizer: transformers.PreTrainedTokenizer,
 ) -> Dict:
     """
@@ -232,44 +218,30 @@ def preprocess(
     4. Make a deepcopy as the target. Mask human words with IGNORE_INDEX.
     """
     # add end signal and concatenate together
-    conversations = []
+    tokenized_conversations = []
+    tokenized_labels = []
     #header = f"{default_conversation.system}\n\n" # MODIFIED
     #header = "Be short, answer with one word if possible. "
     header = "" #MODIFIED
     for source in sources:
-        conversation = _add_speaker_and_signal(header, source, tokenizer)
-        conversations.append(conversation)
+        #conversation = _add_speaker_and_signal(header, source, tokenizer)
+        first_part = tokenizer("### Human: " + source[0]["value"][0],max_length=None, truncation=True)["input_ids"]
 
-    # TODO(Dacheng): This is related to whether the dataset has been truncated..
-    # Assume we get long conversations, don't pad, don't return tensor
-    tokenized_conversations = tokenizer(conversations, max_length=None, truncation=True)["input_ids"]
+        if first_part[-1] == 1:
+            first_part = first_part[:-1]
+        if first_part[-1] != 32106:
+            first_part = first_part + [32106]
+        
+        second_part = tokenizer(source[0]["value"][1] + "\n### Assistant: <\s>",max_length=None, truncation=True)["input_ids"]
+        if second_part[0] != 32106:
+            second_part = [32106] + second_part
 
-    q_list = []
-    a_list = []
-    # count for EOS length
-    header_len = _tokenize_fn([header], tokenizer)["input_ids_lens"][0] - 1
-    from tqdm import tqdm
-    
+        conversation = first_part + [-1] + second_part # To be able to split the conversation into two parts when we put the images in bewteen
+        labels = tokenizer(source[1]["value"], max_length=None, truncation=True)["input_ids"]
+        tokenized_labels.append(labels)
+        tokenized_conversations.append(conversation)
 
-
-    for tokenized_conversation, source in tqdm(zip(tokenized_conversations, sources)):
-        tokenized_sentence = _tokenize_fn([s["value"] for s in source], tokenizer)
-        tokenized_lens = tokenized_sentence["input_ids_lens"]
-        tokenized_lens = [l - 1 for l in tokenized_lens]
-        speakers = [sentence["from"] for sentence in source]
-        ids = tokenized_sentence["input_ids"]
-
-        _form_qa(
-            q_list,
-            a_list,
-            tokenized_conversation,
-            tokenized_lens,
-            speakers,
-            header_len,
-            tokenizer.model_max_length,
-            tokenizer.eos_token_id,
-        )
-    return dict(input_ids=q_list, labels=a_list)
+    return dict(input_ids=tokenized_conversations, labels=tokenized_labels, embeds=imgSources, start_idx=start_idx, end_idx=end_idx, documents=documents)
 
 
 class SupervisedDataset(Dataset):
@@ -281,24 +253,26 @@ class SupervisedDataset(Dataset):
         tokenizer: transformers.PreTrainedTokenizer,
         preprocessed_path,
         num_data,
+       
     ):
         super(SupervisedDataset, self).__init__()
-
+        
         # save to file
         # Make sure only the first process is processing the dataset
-        # if dist.get_rank() != 0:
-        #     dist.barrier()
+        #if dist.get_rank() != 0:
+        #  dist.barrier()
         self.preprocessed_path = preprocessed_path
         if os.path.exists(self.preprocessed_path):
             logging.warning("loading from preprocessed data")
             with open(self.preprocessed_path, "r") as f:
                 data_dict = json.load(f)
-            # if dist.get_rank() == 0:
-            #     dist.barrier()
+                
+            #if dist.get_rank() == 0:
+            #   dist.barrier()
         else:
             if not os.path.exists("preprocessed_data"):
                 os.mkdir("preprocessed_data")
-            # assert dist.get_rank() == 0, "Only the first process should process"
+            #assert dist.get_rank() == 0, "Only the first process should process"
             logging.warning("Loading data...")
             list_data_dict = json.load(open(data_path, "r"))
 
@@ -306,53 +280,83 @@ class SupervisedDataset(Dataset):
             sources = []
 
             sources = [example["conversations"] for example in list_data_dict]
+            embeds = [example["embeds"] for example in list_data_dict]
+            start_idx = [example["start_idx"] for example in list_data_dict]
+            end_idx = [example["end_idx"] for example in list_data_dict]
+            documents = [example["document"] for example in list_data_dict]
 
-            data_dict = preprocess(sources, tokenizer)
+            data_dict = preprocess(sources, embeds, documents, start_idx, end_idx, tokenizer)
             json_data_dict = json.dumps(data_dict)
 
+
             # Remember to close file to avoid concurrent r/w
-            with open(self.preprocessed_path,"w") as f:
+            with open(self.preprocessed_path,"w") as f: # what about the image tensors? we can't save them in the json 
                 f.write(json_data_dict)
-            
+
             # Release barrier
-            # dist.barrier()
+            #dist.barrier()
 
         if num_data != -1:
             data_dict["input_ids"] = data_dict["input_ids"][:num_data]
             data_dict["labels"] = data_dict["labels"][:num_data]
+            data_dict["star_idx"] = data_dict["start_idx"][:num_data]
+            data_dict["end_idx"] = data_dict["end_idx"][:num_data]
+            data_dict["embeds"] = data_dict["embeds"][:num_data]
+            data_dict["document"] = data_dict["document"][:num_data]
+
+        full_data_dict = {}
+        full_data_dict["input_ids"] = copy.deepcopy(data_dict["input_ids"])
+        full_data_dict["labels"] = copy.deepcopy(data_dict["labels"])
+        full_data_dict["images"] = self.load_image_embeds(data_dict["embeds"],data_dict["documents"],data_dict["start_idx"],data_dict["end_idx"])
+        
+        #import pdb; pdb.set_trace()
 
         # Shuffle data to see more conversations, if only train on partial data
-        temp = list(zip(data_dict["input_ids"], data_dict["labels"]))
+        temp = list(zip(full_data_dict["input_ids"], full_data_dict["labels"], full_data_dict["images"]))
         random.shuffle(temp)
-        res1, res2 = zip(*temp)
-        data_dict["input_ids"], data_dict["labels"] = list(res1), list(res2)
+        res1, res2, res3= zip(*temp)
+        full_data_dict["input_ids"], full_data_dict["labels"], full_data_dict["images"] = list(res1), list(res2), list(res3)
+
 
         # Dacheng: Get rid of short QA pair #MODIFIED
-        self.input_ids = copy.deepcopy(data_dict["input_ids"])
-        self.labels = copy.deepcopy(data_dict["labels"])
-        """length_arr = defaultdict(int)
-        for idx, (input, label) in enumerate(
-            zip(data_dict["input_ids"], data_dict["labels"])
-        ):
-            length_arr[str(len(label) // 100)] += 1
-            if len(input) <= 5:
-                del_idx = self.input_ids.index(input)
-                self.input_ids.pop(del_idx)
-                self.labels.pop(del_idx)
-            if len(label) <= 5:
-                del_idx = self.labels.index(label)
-                self.input_ids.pop(del_idx)
-                self.labels.pop(del_idx)
-
-        for input, label in zip(self.input_ids, self.labels):
-            assert len(input) >= 5
-            assert len(label) >= 5"""
+        self.input_ids = copy.deepcopy(full_data_dict["input_ids"])
+        self.labels = copy.deepcopy(full_data_dict["labels"])
+        self.images = copy.deepcopy(full_data_dict["images"])
+        
     
     def __len__(self):
         return len(self.input_ids)
 
+    
+    def load_image_embeds(self, embed_sources, documents, start_idx, end_idx):
+        
+        embeddings = []
+        # add tqdm
+        
+        for i, src in tqdm.tqdm(enumerate(embed_sources), total=len(embed_sources), desc="preprocessing embeds"):
+            indices = list(range(int(start_idx[i]), int(end_idx[i])+1))
+            
+            embed = None
+            for idx in indices:
+                    path = os.path.join(src, documents[i]+ '_' + str(idx) + ".pt")
+                    
+                    if embed is None:
+                        embed= torch.load(path)
+                    else:
+                        embed = torch.cat((embed, torch.load(path)), 1)
+
+            embeddings.append(embed.cpu()) #because if not the Dataloader will crash in pin_memory method.... (torchdata/utils/_utils/pin_memory.py)
+            
+        return embeddings
+    
+
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
-        return dict(input_ids=self.input_ids[i], labels=self.labels[i])
+        #import pdb; pdb.set_trace()
+
+        return dict(input_ids=self.input_ids[i], images= self.images[i], labels=self.labels[i])
+
+
+
 
 
 @dataclass
@@ -360,29 +364,34 @@ class DataCollatorForSupervisedDataset(object):
     """Collate examples for supervised fine-tuning."""
 
     tokenizer: transformers.PreTrainedTokenizer
-
+   
     def __call__(self, instances: Sequence[Dict]) -> Dict[str, torch.Tensor]:
-  
+
         input_ids, labels = tuple(
             [
                 torch.as_tensor(instance[key], dtype=torch.int64)
                 for instance in instances
             ]
-            for key in ("input_ids", "labels")
+            for key in ("input_ids","labels")
         )
+
         input_ids = torch.nn.utils.rnn.pad_sequence(
             input_ids, batch_first=True, padding_value=self.tokenizer.pad_token_id
         )
         labels = torch.nn.utils.rnn.pad_sequence(
             labels, batch_first=True, padding_value=IGNORE_INDEX
         )
+        
+        images_batch = [instance["images"] for instance in instances]
+
         ret = dict(
             input_ids=input_ids,
+            images=images_batch,
             labels=labels,
-            attention_mask=input_ids.ne(self.tokenizer.pad_token_id),
         )
         torch.set_printoptions(profile="full")
         return ret
+
 
 
 def make_supervised_data_module(
@@ -395,17 +404,16 @@ def make_supervised_data_module(
         data_path=data_args.data_path,
         preprocessed_path=data_args.preprocessed_path,
         num_data=data_args.num_data,
+        
     )
 
     data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
-    # import pdb; pdb.set_trace()
-    
 
     val_dataset = dataset_cls(
-    tokenizer=tokenizer,
-    data_path=data_args.data_path.replace("train", "val"),
-    preprocessed_path=data_args.preprocessed_path.replace("train", "val"),
-    num_data=data_args.num_data,
+        tokenizer=tokenizer,
+        data_path=data_args.data_path.replace("train", "val"),
+        preprocessed_path=data_args.preprocessed_path.replace("train", "val"),
+        num_data=data_args.num_data,
     )
 
     #print(data_args.num_data)
@@ -413,21 +421,55 @@ def make_supervised_data_module(
         train_dataset=train_dataset, eval_dataset=val_dataset, data_collator=data_collator
     )
 
-def train():
+def train(from_pretrained, weights_path, vision_tower_type, freeze_linear, freeze_visionTower, freeze_llm):
 
     parser = transformers.HfArgumentParser(
         (ModelArguments, DataArguments, TrainingArguments)
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
-    model = transformers.AutoModelForSeq2SeqLM.from_pretrained(
-        model_args.model_name_or_path,
-        cache_dir=training_args.cache_dir,
-    )
-    # Dacheng: Note we can only use T5Tokenizer, otherwise it will prepend
-    # a space before special tokens.
+
+    if from_pretrained:
+        
+        model = DocVQALLM.from_pretrained(weights_path, freeze_linear=freeze_linear, vision_tower_type=vision_tower_type, freeze_visionTower=freeze_visionTower, freeze_llm=freeze_llm)
+
+    else:
+        model = DocVQALLM(freeze_linear=freeze_linear, vision_tower_type=vision_tower_type, freeze_visionTower=freeze_visionTower, freeze_llm=freeze_llm)
+    
+    if freeze_linear:
+        #check that the linear layer is frozen
+        for param in model.mm_projector.parameters():
+            if param.requires_grad:
+                raise ValueError("Error The linear layer is not frozen")
+    else:
+        #check that the linear layer is not frozen
+        for param in model.mm_projector.parameters():
+            if not param.requires_grad:
+                raise ValueError("Error The linear layer is frozen")
+            
+    if freeze_visionTower:
+        #check that the vision tower is frozen
+        for param in model.vision_tower.parameters():
+            if param.requires_grad:
+                raise ValueError("Error The vision tower is not frozen")
+    else:
+        #check that the vision tower is not frozen
+        for param in model.vision_tower.parameters():
+            if not param.requires_grad:
+                raise ValueError("Error The vision tower is frozen")
+    
+    if freeze_llm:
+        #check that the llm is frozen
+        for param in model.llm_model.parameters():
+            if param.requires_grad:
+                raise ValueError("Error The llm is not frozen")
+    
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = model.to(device)
+
     tokenizer = transformers.T5Tokenizer.from_pretrained(
-        model_args.model_name_or_path,
+        'google/flan-t5-xl',
         cache_dir=training_args.cache_dir,
         model_max_length=training_args.model_max_length,
         padding_side="right",
@@ -438,21 +480,33 @@ def train():
         special_tokens_dict=dict(pad_token=DEFAULT_PAD_TOKEN),
         other_tokens=["<", "{", "\n", "}", "`", " ", "\\", "^", "\t"],
         tokenizer=tokenizer,
-        model=model,
+        model=model.llm_model,
     )
 
-    data_module = make_supervised_data_module(tokenizer=tokenizer, data_args=data_args)
+    data_module = make_supervised_data_module(tokenizer=tokenizer, data_args=data_args) 
     trainer = Trainer(
         model=model, tokenizer=tokenizer, args=training_args, **data_module
     )
 
     if list(pathlib.Path(training_args.output_dir).glob("checkpoint-*")):
+        print("Found existing checkpoint, resuming training")
         trainer.train(resume_from_checkpoint=True)
     else:
+        print("No existing checkpoint, starting training from scratch")
         trainer.train()
     trainer.save_state()
     safe_save_model_for_hf_trainer(trainer=trainer, output_dir=training_args.output_dir)
 
-
 if __name__ == "__main__":
-    train()
+
+    #args.model_name_or_path = "google/flan-t5-xl" or the checkpoint of the T5 model we want to use (if from pretrained, it does not matter)
+
+    from_pretrained = True
+    full_model_weights_path = "/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_pretask_CLIP_T5w_new/checkpoint-30000"
+
+    vision_tower_type = "CLIP"
+    freeze_linear = False
+    freeze_visionTower = True
+    freeze_llm = True
+
+    train(from_pretrained, full_model_weights_path, vision_tower_type, freeze_linear, freeze_visionTower, freeze_llm)

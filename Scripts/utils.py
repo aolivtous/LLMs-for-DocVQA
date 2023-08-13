@@ -101,6 +101,5 @@ def extract_answers (data):
         conversation_id = item["id"].split("_")[1]
         conversations = item["conversations"]
         gpt_responses = [conv["value"] for conv in conversations if conv["from"] == "gpt"]
-        print(len(gpt_responses))
         gpt_answers[conversation_id] = gpt_responses
     return gpt_answers

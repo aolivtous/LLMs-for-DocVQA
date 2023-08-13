@@ -15,28 +15,27 @@ from utils import load_config, save_json, build_dataset, extract_answers
 def parse_args():
     parser = argparse.ArgumentParser(description='MP-DocVQA framework')
     parser.add_argument('--model', type=str, default = "T5", help='Name of the model')
-    parser.add_argument('--predictedAnswers', type=str, default = "/home/aolivera/TFM-LLM/LLM/Results/inference/val_inference_T5_CLIP_unfrozen_T5google_DocVQA_single.json", help='Path to predicted answers json file.')
+    parser.add_argument('--predictedAnswers', type=str, default = "/home/aolivera/TFM-LLM/LLM/Results/inference/val_inference_T5_LINEAR_unfrozen_vision_DocVQA_single_05_T5w_new.json", help='Path to predicted answers json file.')
     parser.add_argument('--dataset', type=str, default = "/home/aolivera/TFM-LLM/LLM/Configs/SP-DocVQA.yml", help='Path to yml file with dataset configuration.')
     parser.add_argument('--split', type=str, default = 'val', help='Dataset split: train, val, test.')
     parser.add_argument('--max-sequence-length', type=int, help='Max input sequence length of the model.')
     parser.add_argument('--save-dir', type=str, default = "/home/aolivera/TFM-LLM/LLM/Results/evaluation/" , help='path of the directory where the results folder will be saved')
-    parser.add_argument('--context-type', type=str, default = "visual_T5google_single", help='input context type for the model: text, textBB')
-    #parser.add_argument('-bs', '--batch-size', type=int, help='DataLoader batch size.')
-    
-    #parser.add_argument('--seed', type=int, help='Seed to allow reproducibility.')
-   
+    parser.add_argument('--context-type', type=str, default = "visual_DocVQA_T5w_single05_LINEAR", help='input context type for the model: text, textBB')
+    parser.add_argument('--fromAnswer', type=str, default = "/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/playground/data/val_visualDocVQA_CLIP_LINEAR_singleWord_05.json", help='Path to json file with the OCR data used in inference, that specifies if the answer is in the OCR or not.')  
     return parser.parse_args()
 
-def evaluate(data_loader, evaluator, predAnswers, **kwargs):
+def evaluate(data_loader, evaluator, predAnswers, fromAnswerData, **kwargs):
 
     return_answers = kwargs.get('return_answers', False)
-    
+
+
     scores_by_samples = {}
     total_anls = []
     total_ret_prec = []
     total_gt_in_pred = []
     all_pred_answers = []
     gt_in_pred = 0
+    fromAnswer = []
 
     for batch_idx, batch in enumerate(tqdm(data_loader)):
         bs = len(batch['question_id'])
@@ -64,12 +63,15 @@ def evaluate(data_loader, evaluator, predAnswers, **kwargs):
                 }
 
             total_anls.extend(metric['anls'])
+            fromAnswer.append(fromAnswerData[str(batch['question_id'][0])])
+            if(fromAnswerData[str(batch['question_id'][0])] == -1):
+                print("ERROR: fromAnswerData[str(batch['question_id'][0])] == -1")
             
             if return_answers:
                 all_pred_answers.extend(pred_answers)
 
 
-    return total_anls, total_gt_in_pred, total_ret_prec, all_pred_answers, scores_by_samples
+    return total_anls, total_gt_in_pred, total_ret_prec, all_pred_answers, scores_by_samples, fromAnswer
 
 
 if __name__ == '__main__':
@@ -77,6 +79,14 @@ if __name__ == '__main__':
     args = parse_args()
     config = load_config(args)
     start_time = time.time()
+
+    with open(args.fromAnswer) as f:
+        documents = json.load(f)
+
+    fromAnswerData = {}
+    for item in documents:
+        fromAnswerData[item['id'].split('_')[1]] = item['fromAnswer']
+
 
 
     dataset = build_dataset(config, args.split)
@@ -87,19 +97,45 @@ if __name__ == '__main__':
     
     predAnswers = json.load(open(args.predictedAnswers, 'r'))
     data = extract_answers(predAnswers)
-    total_anls, total_gt_in_pred, total_ret_prec, all_pred_answers, scores_by_samples = evaluate(val_data_loader, evaluator, data, return_answers=True)
+    total_anls, total_gt_in_pred, total_ret_prec, all_pred_answers, scores_by_samples, fromAnswerResults = evaluate(val_data_loader, evaluator, data, fromAnswerData, return_answers=True)
     anls = np.mean(total_anls)
     gt_in_pred = np.sum(total_gt_in_pred)/len(total_gt_in_pred)
 
+    #get subsets results
+    data_from_answer = np.sum(fromAnswerResults)
+    data_not_from_answer = len(fromAnswerResults) - data_from_answer
+
+    anls_from_answer = []
+    anls_not_from_answer = []
+    gt_in_pred_from_answer = 0
+    gt_in_pred_not_from_answer = 0
+
+    for i, data in enumerate(fromAnswerResults):
+        if data == 1:
+            anls_from_answer.append(total_anls[i])
+            gt_in_pred_from_answer += total_gt_in_pred[i]
+        else:
+            anls_not_from_answer.append(total_anls[i])
+            gt_in_pred_not_from_answer += total_gt_in_pred[i]
+    
+    anls_from_answer = np.mean(anls_from_answer)
+    anls_not_from_answer = np.mean(anls_not_from_answer)
+    gt_in_pred_from_answer = gt_in_pred_from_answer/data_from_answer
+    gt_in_pred_not_from_answer = gt_in_pred_not_from_answer/data_not_from_answer
 
     save_data = {
         "Model": config["model"],
         #"Model_weights": config["model_weights"],
         "Dataset": config["dataset_name"],
         "Context type": args.context_type,
-        "Number of questions": len(data),
-        "Mean ANLS": anls,
-        "GT in pred": gt_in_pred,
+        "Number of questions": str(len(documents)),
+        "Number of data from answer": str(data_from_answer),
+        "Mean ANLS": str(anls),
+        "GT in pred": str(gt_in_pred),
+        "Mean ANLS from answer": str(anls_from_answer),
+        "GT in pred from answer": str(gt_in_pred_from_answer),
+        "Mean ANLS not from answer": str(anls_not_from_answer),
+        "GT in pred not from answer": str(gt_in_pred_not_from_answer),
         "Scores by samples": scores_by_samples,
     }
 

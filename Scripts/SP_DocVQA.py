@@ -30,7 +30,8 @@ class SPDocVQA(Dataset):
         context = ' '.join([word.lower() for word in record['ocr_tokens']])
         context_page_corresp = [0 for ix in range(len(context))]  # This is used to predict the answer page in MP-DocVQA. To keep it simple, use a mock list with corresponding page to 0.
 
-        answers = list(set(answer.lower() for answer in record['answers']))
+        #answers = list(set(answer.lower() for answer in record['answers'])) CANVIAT PEL TEST
+        answers = ""
 
         if self.get_raw_ocr_data:
             words = [word.lower() for word in record['ocr_tokens']]

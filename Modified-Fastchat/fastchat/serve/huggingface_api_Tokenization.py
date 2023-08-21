@@ -16,7 +16,7 @@ from fastchat.model import load_model, add_model_args
 
 @torch.inference_mode()
 def check_tokenizer_length(msg, answer, tokenizer, max_length):
-    import pdb; pdb.set_trace()
+    
     if answer is not None:
         input_ids = tokenizer(["Be short, asnwer with one word if possible. \n### Human: " + msg + " \n### Assistant: " + answer + " "]).input_ids
     
@@ -39,8 +39,8 @@ if __name__ == "__main__":
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--model", type=str, default="lmsys/fastchat-t5-3b-v1.0")
-    parser.add_argument("--json_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Data/old/val_AllData_BB.json")
-    parser.add_argument("--output_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Data/val_ValidData_BB.json")
+    parser.add_argument("--json_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Scripts/test_allData_latin_spaces.json")
+    parser.add_argument("--output_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Scripts/test_validData_latin_spaces.json")
     #parser.add_argument("--discarded_questions", type=str, default="/home/aolivera/Documents/LLM_DocVQA/data/train_discarded_questions.txt")
     args = parser.parse_args()
 
@@ -67,9 +67,9 @@ if __name__ == "__main__":
             answer = d['conversations'][1]['value']
         else:
             answer = None"""
-        answer = d['conversations'][1]['value']
+        #answer = d['conversations'][1]['value']
 
-        valid_question = check_tokenizer_length(msg, answer, tokenizer, max_length=2048)
+        valid_question = check_tokenizer_length(msg, None, tokenizer, max_length=2048)
         if valid_question:
             valid_data.append(d)
         else:

@@ -2,7 +2,7 @@ CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --use-env --nproc_pe
     --model_name_or_path google/flan-t5-xl \
     --data_path /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/playground/data/train_validData_BB.json \
     --bf16 True \
-    --output_dir /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/checkpoints/checkpoints_T5_textBB_05 \
+    --output_dir /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/checkpoints/checkpoints_T5_textBB_05_prova \
     --num_train_epochs 0.4 \
     --per_device_train_batch_size 2 \
     --per_device_eval_batch_size 2 \

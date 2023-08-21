@@ -3,7 +3,7 @@ import json
 import math
 from torch.utils.data import DataLoader
 from SP_DocVQA import singlepage_docvqa_collate_fn
-from LLM.Scripts.evaluation_DocVQA import parse_args
+from evaluation_DocVQA import parse_args
 from utils import build_dataset, load_config
 import tqdm
 
@@ -170,9 +170,9 @@ if __name__ == "__main__":
     }   
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--split', type=str, default='val', help='split to use')
-    parser.add_argument('--output_file', type=str, default='val_allData_latin_spaces.json', help='path of the output JSON file that saves the context + questions in the FastChat format and the answers')
-    parser.add_argument('--is_inference', type=bool,default=False, help='wheter to include answers or not')
+    parser.add_argument('--split', type=str, default='test', help='split to use')
+    parser.add_argument('--output_file', type=str, default='test_allData_latin_spaces.json', help='path of the output JSON file that saves the context + questions in the FastChat format and the answers')
+    parser.add_argument('--is_inference', type=bool,default=True, help='wheter to include answers or not')
     parser.add_argument('--validQuestions', type=str, default='/home/aolivera/TFM-LLM/LLM/Data/val_validData_BB.json', help='path of the config file')
     args = parser.parse_args()
 
@@ -198,7 +198,7 @@ if __name__ == "__main__":
 
     for item in tqdm.tqdm(normalizedData.dataset):
 
-        if len(item['boxes']) != 0 and item['question_id'] in valid_questions_id:
+        if len(item['boxes']) != 0: #and item['question_id'] in valid_questions_id:
             space_line_texts = create_latinLayout(item)
 
             doc = "\n".join(space_line_texts)

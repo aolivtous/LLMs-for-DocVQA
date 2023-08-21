@@ -15,13 +15,13 @@ from utils import load_config, save_json, build_dataset, extract_answers
 def parse_args():
     parser = argparse.ArgumentParser(description='MP-DocVQA framework')
     parser.add_argument('--model', type=str, default = "T5", help='Name of the model')
-    parser.add_argument('--predictedAnswers', type=str, default = "/home/aolivera/TFM-LLM/LLM/Results/inference/val_inference_vision_DocVQA_single_T5w.json", help='Path to predicted answers json file.')
+    parser.add_argument('--predictedAnswers', type=str, default = "//home/aolivera/TFM-LLM/LLM/Results/inference/val_inference_vision_DocVQA_all_T5w.json", help='Path to predicted answers json file.')
     parser.add_argument('--dataset', type=str, default = "/home/aolivera/TFM-LLM/LLM/Configs/SP-DocVQA.yml", help='Path to yml file with dataset configuration.')
     parser.add_argument('--split', type=str, default = 'val', help='Dataset split: train, val, test.')
     parser.add_argument('--max-sequence-length', type=int, help='Max input sequence length of the model.')
     parser.add_argument('--save-dir', type=str, default = "/home/aolivera/TFM-LLM/LLM/Results/evaluation/" , help='path of the directory where the results folder will be saved')
-    parser.add_argument('--context-type', type=str, default = "visual_DocVQA_T5w_single_", help='input context type for the model: text, textBB')
-    parser.add_argument('--fromAnswer', type=str, default = "/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/playground/data/val_visualDocVQA_singleWord_05.json", help='Path to json file with the OCR data used in inference, that specifies if the answer is in the OCR or not.')  
+    parser.add_argument('--context-type', type=str, default = "visual_DocVQA_T5w_LINEAR_allContext_", help='input context type for the model: text, textBB')
+    parser.add_argument('--fromAnswer', type=str, default = "/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/playground/data/val_visualDocVQA_allContext_1.json", help='Path to json file with the OCR data used in inference, that specifies if the answer is in the OCR or not.')  
     #/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/playground/data/val_visualDocVQA_singleWord_05.json
     return parser.parse_args()
 

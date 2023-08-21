@@ -68,12 +68,12 @@ if __name__ == "__main__":
 
     # Add arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--split', type=str, default='val', help='split to use')
-    parser.add_argument('--getTrain', type=bool, default=True, help='get the train data')
-    parser.add_argument('--output_file_withAnswers', type=str, default='val_validData.json', help='path of the output JSON file that saves the context + questions in the FastChat format and the answers')
-    parser.add_argument('--output_file_forInference', type=str, default='val_validQuestions.json', help='path of the output JSON file that saves the context + questions in the FastChat ')
-    parser.add_argument('--validQuestions', type=str, default='/home/aolivera/TFM-LLM/LLM/Data/val_validData_BB.json', help='path of the config file')
-    parser.add_argument('--withBB', type=bool, default=False, help='use also the bounding boxes')
+    parser.add_argument('--split', type=str, default='test', help='split to use')
+    parser.add_argument('--getTrain', type=bool, default=False, help='get the train data')
+    parser.add_argument('--output_file_withAnswers', type=str, default='test_validData.json', help='path of the output JSON file that saves the context + questions in the FastChat format and the answers')
+    parser.add_argument('--output_file_forInference', type=str, default='test_validData_BB.json', help='path of the output JSON file that saves the context + questions in the FastChat ')
+    parser.add_argument('--validQuestions', type=str, default='/home/aolivera/TFM-LLM/LLM/Scripts/test_validData_latin_spaces.json', help='path of the config file')
+    parser.add_argument('--withBB', type=bool, default=True, help='use also the bounding boxes')
     args = parser.parse_args()
 
     #load npy file

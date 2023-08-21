@@ -121,18 +121,18 @@ if __name__ == "__main__":
 
     #arguments arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--split', type=str, default='train', help='split to use')
+    parser.add_argument('--split', type=str, default='val', help='split to use')
     parser.add_argument('--dataset', type=str, default='/home/aolivera/TFM-LLM/LLM/Configs/SP-DocVQA.yml', help='Path to yml file with dataset configuration.')
-    parser.add_argument('--validQuestions', type=str, default='/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/playground/data/train_validData.json', help='path of the config file')
+    parser.add_argument('--validQuestions', type=str, default='/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/playground/data/val_validData.json', help='path of the config file')
     parser.add_argument('--documentsInfo', type=str, default='/home/aolivera/SinglePage_DocVQA/', help='path of the documents')
     parser.add_argument('--cropedWords', type=str, default='/home/aolivera/SinglePage_crops', help='path of the folder with the croped words')
-    parser.add_argument('--model', type=str, default='/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_pretask_CLIP_T5w_new/checkpoint-30000', help='path to the model weights')
+    parser.add_argument('--model', type=str, default='/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_pretask_CLIP_unfrozen_T5g_new_weights/checkpoint-43750', help='path to the model weights')
     #posar-lo en el .sh o en el launch
-    parser.add_argument('--output_dir', type=str, default='/data/users/aolivera/preprocess_CLIP/with_T5_custom', help='path to save the embedding and the json file')
+    parser.add_argument('--output_dir', type=str, default='/data/users/aolivera/preprocess_CLIP_LINEAR/with_T5_fastchat', help='path to save the embedding and the json file')
     parser.add_argument('--model_name_or_path', type=str, default='lmsys/fastchat-t5-3b-v1.0', help='path to the original T5 model weights')
     parser.add_argument('--onlyEmbeddings', type=bool, default=False, help='Compute and save the visual embeddings assuming that there is another json file is already created which selects which crops to use')
     parser.add_argument('--jsonData', type=str, default='/data/users/aolivera/preprocess_CLIP/with_T5_custom/val_visualDocVQA_CLIP_singleWord_05.json', help='Path to the json file with the data')
-    parser.add_argument('--clipOnly', type=bool, default=True, help='Get the embeddings only with clip or with clip and the linear layer')
+    parser.add_argument('--clipOnly', type=bool, default=False, help='Get the embeddings only with clip or with clip and the linear layer')
     parser.add_argument('--batch_size', type=int, default=2048, help='batch size to compute the embeddings')
     args = parser.parse_args()
 

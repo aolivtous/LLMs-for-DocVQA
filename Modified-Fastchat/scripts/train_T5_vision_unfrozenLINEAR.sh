@@ -1,8 +1,8 @@
-CUDA_VISIBLE_DEVICES=0 python -m torch.distributed.launch --use-env --nproc_per_node=1 --master_port=9773 /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/fastchat/train/train_flant5_vision_frozen.py \
+CUDA_VISIBLE_DEVICES=5 python -m torch.distributed.launch --use-env --nproc_per_node=1 --master_port=9773 /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/fastchat/train/train_flant5_vision_unfrozenLINEAR.py \
     --model_name_or_path /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_8epochs\
     --data_path /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/playground/data/train_visualDocVQA_allContext_1.json\
     --bf16 True \
-    --output_dir /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_prova2-allWords\
+    --output_dir /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_unfrozenLINEAR_allWords\
     --num_train_epochs 30 \
     --per_device_train_batch_size 4\
     --per_device_eval_batch_size 4 \
@@ -19,5 +19,5 @@ CUDA_VISIBLE_DEVICES=0 python -m torch.distributed.launch --use-env --nproc_per_
     --tf32 True \
     --model_max_length 2048 \
     --metric_for_best_model "eval_loss" \
-    --preprocessed_path /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/preprocessed_data/train_CLIP_frozen_LINEAR_unfrozen_T5w_new_prova.json \
+    --preprocessed_path /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/preprocessed_data/train_unfrozenLINEAR_allWords.json \
     --gradient_checkpointing True \

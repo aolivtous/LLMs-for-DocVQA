@@ -21,7 +21,9 @@ import random
 import json
 import logging
 import pathlib
+from torchsummary import summary
 from typing import Any, Dict, Optional, Sequence
+from torchviz import make_dot
 
 import numpy as np
 import torch
@@ -439,16 +441,16 @@ def make_supervised_data_module(
 
     data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
 
-    """val_dataset = dataset_cls(
+    val_dataset = dataset_cls(
         tokenizer=tokenizer,
         data_path=data_args.data_path.replace("train", "val"),
         preprocessed_path=data_args.preprocessed_path.replace("train", "val"),
         num_data=data_args.num_data,
-    )"""
+    )
 
     #print(data_args.num_data)
     return dict(
-        train_dataset=train_dataset, eval_dataset=None, data_collator=data_collator
+        train_dataset=train_dataset, eval_dataset=val_dataset, data_collator=data_collator
     )
 
 def train():

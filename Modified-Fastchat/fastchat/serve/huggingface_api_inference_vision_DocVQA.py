@@ -169,7 +169,7 @@ if __name__ == "__main__":
 
     # Add extra arguments
     parser.add_argument('--embedsDir', type=str, default='/data/users/aolivera/preprocess_CLIP/with_T5_custom', help='path where there are the embeddings and the json file')
-    parser.add_argument('--modelPath', type=str, default='/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_unfrozenLINEAR_allWords/checkpoint-22140', help='path to the original T5 model weights')
+    parser.add_argument('--modelPath', type=str, default='/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_pretask_CLIP_T5w_new/checkpoint-30000', help='path to the original T5 model weights')
     #/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_pretask_CLIP_frozen_T5w_LINEAR_unfrozen_new/checkpoint-9602
     parser.add_argument('--split', type=str, default='val', help='split to use')
     parser.add_argument('--clipOnly', type=bool, default=True, help='Whether the embeddings are only from CLIP  or CLIP + linear layer')

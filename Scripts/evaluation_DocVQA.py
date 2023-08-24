@@ -37,6 +37,7 @@ def evaluate(data_loader, evaluator, predAnswers, **kwargs):
     total_gt_in_pred = []
     all_pred_answers = []
     gt_in_pred = 0
+    total_acc = 0
 
     for batch_idx, batch in enumerate(tqdm(data_loader)):
         bs = len(batch['question_id'])
@@ -64,12 +65,15 @@ def evaluate(data_loader, evaluator, predAnswers, **kwargs):
                 }
 
             total_anls.extend(metric['anls'])
+
+            if metric['anls'][0] == 1:
+                total_acc += 1
             
             if return_answers:
                 all_pred_answers.extend(pred_answers)
 
 
-    return total_anls, total_gt_in_pred, total_ret_prec, all_pred_answers, scores_by_samples
+    return total_anls, total_gt_in_pred, total_acc, total_ret_prec, all_pred_answers, scores_by_samples
 
 
 if __name__ == '__main__':
@@ -87,8 +91,9 @@ if __name__ == '__main__':
     
     predAnswers = json.load(open(args.predictedAnswers, 'r'))
     data = extract_answers(predAnswers)
-    total_anls, total_gt_in_pred, total_ret_prec, all_pred_answers, scores_by_samples = evaluate(val_data_loader, evaluator, data, return_answers=True)
+    total_anls, total_gt_in_pred, total_acc, total_ret_prec, all_pred_answers, scores_by_samples = evaluate(val_data_loader, evaluator, data, return_answers=True)
     anls = np.mean(total_anls)
+    acc = total_acc/len(data)
     gt_in_pred = np.sum(total_gt_in_pred)/len(total_gt_in_pred)
 
 
@@ -100,6 +105,7 @@ if __name__ == '__main__':
         "Number of questions": len(data),
         "Mean ANLS": anls,
         "GT in pred": gt_in_pred,
+        "Accuracy": acc,
         "Scores by samples": scores_by_samples,
     }
 

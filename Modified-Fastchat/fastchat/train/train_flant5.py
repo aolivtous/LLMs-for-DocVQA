@@ -23,6 +23,7 @@ import logging
 import pathlib
 from typing import Dict, Optional, Sequence
 
+
 import torch
 import torch.distributed as dist
 
@@ -404,6 +405,7 @@ def train():
         model_args.model_name_or_path,
         cache_dir=training_args.cache_dir,
     )
+
     # Dacheng: Note we can only use T5Tokenizer, otherwise it will prepend
     # a space before special tokens.
     tokenizer = transformers.T5Tokenizer.from_pretrained(

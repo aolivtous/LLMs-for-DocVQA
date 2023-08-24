@@ -117,20 +117,26 @@ def get_dataset_visualDocVQA(args, docVQAdataset, validData,documentsInfo, fromA
             else:
                 if fromAnswer[item['question_id']] == 1: #from answer
                     start_idx, end_idx = find_word_number(item['words'], item['start_indxs'], item['end_indxs'])
+                    if args.numWords > 1:
+                        if start_idx == len(item['words'])-1:
+                            start_idx = len(item['words'])-args.numWords 
+                                
                 else: # choose another random word
                     answer_not_in_query += 1
                     if len(item['words']) == 0:
                         import pdb; pdb.set_trace()
                         
                     else: 
-                        index = torch.randint(0, len(item['words']), (1,)).item()
+                        index = torch.randint(0, len(item['words'])-args.numWords, (1,)).item()
                         visual_word = item['words'][index]
                         start_idx = end_idx = index 
 
     
-            if args.multiWords:
-                indices = np.arange(start_idx, end_idx+1)
-                visual_word = ' '.join(item['words'][start_idx:end_idx+1])
+            if args.numWords > 1:
+
+                #indices = np.arange(start_idx, end_idx+1)
+                indices = np.arange(start_idx, start_idx+args.numWords)
+                visual_word = ' '.join(item['words'][start_idx: start_idx+args.numWords])
                 
             else: #choose a random word from the answer
                 indices = [torch.randint(start_idx, end_idx+1, (1,)).item()]
@@ -155,7 +161,7 @@ def get_dataset_visualDocVQA(args, docVQAdataset, validData,documentsInfo, fromA
                 }
             ]
 
-            #get_embeddings(args, item['question_id'], indices, documentsInfo, model, image_processor)
+            get_embeddings(args, item['question_id'], indices, documentsInfo, model, image_processor)
             
             new_item = {
                 'id': f'identity_{item["question_id"]}',
@@ -192,7 +198,7 @@ if __name__ == "__main__":
     #posar-lo en el .sh o en el launch
     parser.add_argument('--output_dir', type=str, default='/data/users/aolivera/preprocess_CLIP/with_T5_custom', help='path to save the embedding and the json file')
     parser.add_argument('--model_name_or_path', type=str, default='lmsys/fastchat-t5-3b-v1.0', help='path to the original T5 model weights')
-    parser.add_argument('--multiWords', type=bool, default=False, help='replace all words of the answer by visual embeddings in multiwords answers')
+    parser.add_argument('--numWords', type=int, default=2, help='Number of words from the answer to replace by visual embeddings')
     parser.add_argument('--onlyEmbeddings', type=bool, default=False, help='Compute and save the visual embeddings assuming that there is another json file is already created which selects which crops to use')
     parser.add_argument('--jsonData', type=str, default='/data/users/aolivera/preprocess_CLIP_LINEAR/with_T5_custom/val_visualDocVQA_singleWord_05.json', help='Path to the json file with the data')
     parser.add_argument('--fromAnswer', type=float, default=0.5, help='as per unit amount of times that the visual word is from the answer')
@@ -282,8 +288,8 @@ if __name__ == "__main__":
         inference_json_str = json.dumps(inference_data, indent=2)
 
     # save the JSON string to a file
-    if args.multiWords:
-        method = 'multiWords'
+    if args.numWords > 1:
+        method = f'{args.numWords}_words'
     else:
         method = 'singleWord'
 

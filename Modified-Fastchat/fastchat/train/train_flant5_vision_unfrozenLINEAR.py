@@ -502,7 +502,7 @@ if __name__ == "__main__":
     #args.model_name_or_path = "google/flan-t5-xl" or the checkpoint of the T5 model we want to use (if from pretrained, it does not matter)
 
     from_pretrained = True
-    full_model_weights_path = "/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_pretask_CLIP_frozen_T5w_LINEAR_unfrozen_new/checkpoint-9602"
+    full_model_weights_path = "/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_pretask_CLIP_T5w_new/checkpoint-30000"
 
     vision_tower_type = "CLIP"
     freeze_linear = False

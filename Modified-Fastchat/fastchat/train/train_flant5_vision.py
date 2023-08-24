@@ -502,7 +502,7 @@ if __name__ == "__main__":
 
     vision_tower_type = "CLIP"
     freeze_linear = False
-    freeze_visionTower = False
+    freeze_visionTower = True
     freeze_llm = True
 
     train(from_pretrained, full_model_weights_path, vision_tower_type, freeze_linear, freeze_visionTower, freeze_llm)

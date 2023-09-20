@@ -30,23 +30,23 @@ def get_dataset_visualDocVQA(data):
 
 def get_data():
     #read json
-    path = "/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/preprocessed_data/val_T5unfrozen_allWords_CL.json"
+    path = "/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/preprocessed_data/train_T5unfrozen_allWords_CL.json"
 
     with open(path) as f:
         data = json.load(f)
 
     new_data = []
     
-    data['input_ids'] = data['input_ids'][:1000]
-    data['labels'] = data['labels'][:1000]
-    data['embeds'] = data['embeds'][:1000]
-    data['start_idx'] = data['start_idx'][:1000]
-    data['end_idx'] = data['end_idx'][:1000]
-    data['documents'] = data['documents'][:1000]
+    data['input_ids'] = data['input_ids'][:5000]
+    data['labels'] = data['labels'][:5000]
+    data['embeds'] = data['embeds'][:5000]
+    data['start_idx'] = data['start_idx'][:5000]
+    data['end_idx'] = data['end_idx'][:5000]
+    data['documents'] = data['documents'][:5000]
 
 
     #save to json
-    with open('/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/preprocessed_data/val_T5unfrozen_allWords_CL_short_1000.json', 'w') as outfile:
+    with open('/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/preprocessed_data/train_T5unfrozen_allWords_CL_short_10000.json', 'w') as outfile:
         json.dump(data, outfile)
     
 

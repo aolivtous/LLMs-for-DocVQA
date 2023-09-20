@@ -261,20 +261,20 @@ class SupervisedDataset(Dataset):
         
         # save to file
         # Make sure only the first process is processing the dataset
-        if dist.get_rank() != 0:
-          dist.barrier()
+        #if dist.get_rank() != 0:
+        #  dist.barrier()
         self.preprocessed_path = preprocessed_path
         if os.path.exists(self.preprocessed_path):
             logging.warning("loading from preprocessed data")
             with open(self.preprocessed_path, "r") as f:
                 data_dict = json.load(f)
                 
-            if dist.get_rank() == 0:
-               dist.barrier()
+            #if dist.get_rank() == 0:
+            #   dist.barrier()
         else:
             if not os.path.exists("preprocessed_data"):
                 os.mkdir("preprocessed_data")
-            assert dist.get_rank() == 0, "Only the first process should process"
+            #assert dist.get_rank() == 0, "Only the first process should process"
             logging.warning("Loading data...")
             list_data_dict = json.load(open(data_path, "r"))
 
@@ -296,7 +296,7 @@ class SupervisedDataset(Dataset):
                 f.write(json_data_dict)
 
             # Release barrier
-            dist.barrier()
+            #dist.barrier()
 
         if num_data != -1:
             data_dict["input_ids"] = data_dict["input_ids"][:num_data]
@@ -323,7 +323,8 @@ class SupervisedDataset(Dataset):
         # Dacheng: Get rid of short QA pair #MODIFIED
         self.input_ids = copy.deepcopy(full_data_dict["input_ids"])
         self.labels = copy.deepcopy(full_data_dict["labels"])
-        self.images = copy.deepcopy(full_data_dict["images"])
+        #self.images = copy.deepcopy(full_data_dict["images"]) #MODIFIED for memory issues
+        self.images = full_data_dict["images"]
         
     
     def __len__(self):

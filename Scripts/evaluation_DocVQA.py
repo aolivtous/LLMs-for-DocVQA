@@ -15,12 +15,12 @@ from utils import load_config, save_json, build_dataset, extract_answers
 def parse_args():
     parser = argparse.ArgumentParser(description='MP-DocVQA framework')
     parser.add_argument('--model', type=str, default = "T5", help='Name of the model')
-    parser.add_argument('--predictedAnswers', type=str, default = "/home/aolivera/TFM-LLM/LLM/Results/inference/val_inference_T5_CLIP_unfrozen_T5google_DocVQA_single.json", help='Path to predicted answers json file.')
+    parser.add_argument('--predictedAnswers', type=str, default = "/home/aolivera/TFM-LLM/LLM/Results/inference/val_text_fastchat_8epoch.json", help='Path to predicted answers json file.')
     parser.add_argument('--dataset', type=str, default = "/home/aolivera/TFM-LLM/LLM/Configs/SP-DocVQA.yml", help='Path to yml file with dataset configuration.')
     parser.add_argument('--split', type=str, default = 'val', help='Dataset split: train, val, test.')
     parser.add_argument('--max-sequence-length', type=int, help='Max input sequence length of the model.')
     parser.add_argument('--save-dir', type=str, default = "/home/aolivera/TFM-LLM/LLM/Results/evaluation/" , help='path of the directory where the results folder will be saved')
-    parser.add_argument('--context-type', type=str, default = "visual_T5google_single", help='input context type for the model: text, textBB')
+    parser.add_argument('--context-type', type=str, default = "text_fastchat_8epoch", help='input context type for the model: text, textBB')
     #parser.add_argument('-bs', '--batch-size', type=int, help='DataLoader batch size.')
     
     #parser.add_argument('--seed', type=int, help='Seed to allow reproducibility.')

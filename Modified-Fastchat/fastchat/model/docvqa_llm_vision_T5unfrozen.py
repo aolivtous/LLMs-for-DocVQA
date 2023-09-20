@@ -83,6 +83,17 @@ class DocVQALLM(nn.Module, PyTorchModelHubMixin):
             cache_dir=training_args.cache_dir,
         )
 
+        for name, param in self.llm_model.named_parameters():
+                param.requires_grad = False
+
+        #unfreeze the decoder
+        for name, param in self.llm_model.decoder.named_parameters():
+                param.requires_grad = True
+
+        #unfreeze the encoder
+        for name, param in self.llm_model.encoder.named_parameters():
+                param.requires_grad = True
+
 
         #self.vision_tower.to(self.llm_model.device)
         print('Loading model done')
@@ -105,9 +116,9 @@ class DocVQALLM(nn.Module, PyTorchModelHubMixin):
     
     
     def forward(self, input_ids, images,labels):
-        # load a tensor of images [batch_size, 3, 224, 224] for ResNet
-        #images ja son els tensors
-        
+
+        print("number of embeds", images[0].size()[1])
+               
         if images[0].size()[-1] == 2048:
             img_embeds = images
         else:
@@ -164,6 +175,10 @@ class DocVQALLM(nn.Module, PyTorchModelHubMixin):
 
         # concat the padded tensors along the first dimension to create the combined tensor [batch_size, max_dim, hidden_size]
         to_regress_pad_embeds = torch.concat(padded_tensors, dim=0)
+        print("to_regress_pad_embeds: ", to_regress_pad_embeds.size()[1])
+
+        if to_regress_embeds[0].size()[1] >= 2048:
+            import pdb; pdb.set_trace()
 
         #extend all labels with -100 so that the eos token is not lost
         labels = torch.cat([labels, torch.full((labels.shape[0], 1), -100, dtype=torch.long).cuda()],  dim=1)

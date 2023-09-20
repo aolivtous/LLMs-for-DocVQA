@@ -7,6 +7,7 @@ python3 -m fastchat.serve.huggingface_api --model ~/model_weights/vicuna-7b/
 """
 import argparse
 import json
+import os
 
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -57,6 +58,7 @@ def main(args, msg, model, tokenizer):
 
 
 if __name__ == "__main__":
+    os.environ["CUDA_VISIBLE_DEVICES"] = "5"
     parser = argparse.ArgumentParser()
     add_model_args(parser)
     parser.add_argument("--temperature", type=float, default=0.7)
@@ -64,13 +66,14 @@ if __name__ == "__main__":
     parser.add_argument("--debug", action="store_true")
     #parser.add_argument("--model", type=str, default="/data/shared/vicuna/vicuna-7b")
     #parser.add_argument("--model", type=str, default="lmsys/fastchat-t5-3b-v1.0")
-    parser.add_argument("--model", type=str, default="/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_8epochs") 
+    parser.add_argument("--model", type=str, default="/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_prova_google/checkpoint-738") 
+    #parser.add_argument("--model", type=str, default="google/flan-t5-xl")
 
     #parser.add_argument("--model", type=str, default="/home/aolivera/Documents/LLM_DocVQA/FastChat/checkpoints/checkpoints_T5_text/checkpoint-3300") 
     #parser.add_argument("--model", type=str, default="/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_8epochs/checkpoint-2700") 
    
     parser.add_argument("--json_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/playground/data/val_validData.json")
-    parser.add_argument("--output_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Results/inference/prova_newTok.json")
+    parser.add_argument("--output_file", type=str, default="/home/aolivera/TFM-LLM/LLM/Results/inference/val_text_fastchat_8epoch.json")
     args = parser.parse_args()
 
     with open(args.json_file) as f:

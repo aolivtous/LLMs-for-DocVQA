@@ -1,8 +1,8 @@
-CUDA_VISIBLE_DEVICES=4 python -m torch.distributed.launch --use-env --nproc_per_node=1 --master_port=9776 /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/fastchat/train/train_flant5_vision.py \
-    --model_name_or_path lmsys/fastchat-t5-3b-v1.0\
+CUDA_VISIBLE_DEVICES=5 python -m torch.distributed.launch --use-env --nproc_per_node=1 --master_port=9776 /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/fastchat/train/train_flant5_vision.py \
+    --model_name_or_path google/flan-t5-xl\
     --data_path /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/playground/data/train_pretaskData_reduced.json\
     --bf16 True \
-    --output_dir /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_pretask_CLIP_unfrozen_T5g_new_weights\
+    --output_dir /home/aolivera/TFM-LLM/LLM/Modified-Fastchat/scripts/checkpoints/checkpoints_flant5_pretask_CLIP_unfrozen_T5g_weights_provaSummary\
     --num_train_epochs 35 \
     --per_device_train_batch_size 32\
     --per_device_eval_batch_size 32 \

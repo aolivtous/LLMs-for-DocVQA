@@ -22,6 +22,7 @@ from torchvision import models
 
 from huggingface_hub import PyTorchModelHubMixin
 from fastchat.model import load_model
+from torchsummary import summary
 
 IGNORE_INDEX = -100
 DEFAULT_PAD_TOKEN = "[PAD]"
@@ -164,7 +165,8 @@ class DocVQALLM(nn.Module, PyTorchModelHubMixin):
     
     
     def forward(self, input_ids, images,labels,attention_mask):
-        # load a tensor of images [batch_size, 3, 224, 224] for ResNet
+            
+        import pdb; pdb.set_trace()
         
         img_embeds_tower = self.encode_img_visionTower(images)
 
@@ -258,7 +260,6 @@ class DocVQALLM(nn.Module, PyTorchModelHubMixin):
 
     def gradient_checkpointing_enable(self): # TO DO #############
         return True # If I don't have this method the trainer.py will complain
-    
     def encode_img_visionTower(self, images):
 
         if isinstance(self.vision_tower, nn.Sequential): # ResNet

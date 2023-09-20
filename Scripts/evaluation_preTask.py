@@ -14,10 +14,10 @@ from utils import load_config, save_json, build_dataset, extract_answers
 
 def parse_args():
     parser = argparse.ArgumentParser(description='MP-DocVQA framework')
-    parser.add_argument('--predictedAnswers', type=str, default = "/home/aolivera/TFM-LLM/LLM/Results/inference/val_inference_vision_Pretask_T5_CLIP_unfrozen_T5g_new_.json", help='Path to predicted answers json file.')
-    parser.add_argument('--gtAnswers', type=str, default = "/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/playground/data/val_pretaskData_reduced.json", help='Path to ground truth answers json file')
+    parser.add_argument('--predictedAnswers', type=str, default = "/home/aolivera/TFM-LLM/LLM/Results/inference/val_TEST_inference_vision_Pretask_T5_CLIP_unfrozen_T5_flant_w_New.json", help='Path to predicted answers json file.')
+    parser.add_argument('--gtAnswers', type=str, default = "/home/aolivera/TFM-LLM/LLM/Modified-Fastchat/playground/data/val_pretaskData_reduced_test_1000.json", help='Path to ground truth answers json file')
     parser.add_argument('--save_dir', type=str, default = "/home/aolivera/TFM-LLM/LLM/Results/evaluation/" , help='path of the directory where the results folder will be saved')
-    parser.add_argument('--method', type=str, default = "T5_CLIP_unfrozen_T5g_new_", help='method used to generate the answers that will serve as the output name of the results')
+    parser.add_argument('--method', type=str, default = "T5_CLIP_unfrozen_T5w_TEST_new", help='method used to generate the answers that will serve as the output name of the results')
     return parser.parse_args()
 
 def evaluate(gt, evaluator, predAnswers, **kwargs):

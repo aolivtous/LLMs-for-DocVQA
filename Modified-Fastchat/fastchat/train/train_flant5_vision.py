@@ -327,8 +327,9 @@ class SupervisedDataset(Dataset):
         # Dacheng: Get rid of short QA pair #MODIFIED
         self.input_ids = copy.deepcopy(full_data_dict["input_ids"])
         self.labels = copy.deepcopy(full_data_dict["labels"])
-        self.images = copy.deepcopy(full_data_dict["images"])
-    
+        #self.images = copy.deepcopy(full_data_dict["images"]) # crashes for memory issues??
+        self.images = full_data_dict["images"]
+        
     def __len__(self):
         return len(self.input_ids)
 
@@ -502,7 +503,7 @@ if __name__ == "__main__":
 
     vision_tower_type = "CLIP"
     freeze_linear = False
-    freeze_visionTower = True
+    freeze_visionTower = False
     freeze_llm = True
 
     train(from_pretrained, full_model_weights_path, vision_tower_type, freeze_linear, freeze_visionTower, freeze_llm)

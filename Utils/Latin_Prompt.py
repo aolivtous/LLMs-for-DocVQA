@@ -13,8 +13,6 @@ def boxes_sort(boxes,texts): # first sort by y, then sort by x
     Params:
         boxes: [[x1, y1, x2, y2], [x1, y1, x2, y2], ...]
     """
-
-    old_boxes = boxes.copy()
     boxes,ids,texts = sort_by_line(boxes,texts)
     sorted_id = sorted(ids, key=lambda x: (boxes[x][1], boxes[x][0]))
 
@@ -137,43 +135,11 @@ def create_latinLayout(item):
 
 if __name__ == "__main__":
 
-    
-    PROMPT_DICT = {
-    "prompt_task": (
-        "You are asked to answer questions asked on a document image.\n"
-        "The answers to questions are short text spans taken verbatim from the document. "
-        "This means that the answers comprise a set of contiguous text tokens present in the document.\n"
-        "Document:\n{document}\n\n"
-        "Question: {question}\n\n"
-        "Directly extract the answer of the question from the document with as few words as possible .\n\n"
-        "Answer:"
-    ),
-    "prompt_plain": (
-        "Document:\n{document}\n\n"
-        "Question: {question}\n\n"
-        "Directly extract the answer of the question from the document.\n\n"
-        "Answer:"
-    ),
-    "prompt_inference": (
-        "I have this document with the following words:\n{document}\n\n"
-        "Question: {question}\n\n"
-        "Directly extract the answer of the question from the document.\n\n"
-        "Answer:"
-    ),
-    
-    "prompt_finetune": (
-        "Document:\n{document}\n\n"
-        "Question: {question}\n\n"
-        "Directly extract the answer of the question from the document.\n\n"
-        "Answer:"
-    ),
-    }   
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--split', type=str, default='test', help='split to use')
     parser.add_argument('--output_file', type=str, default='test_allData_latin_spaces.json', help='path of the output JSON file that saves the context + questions in the FastChat format and the answers')
     parser.add_argument('--is_inference', type=bool,default=True, help='wheter to include answers or not')
-    parser.add_argument('--validQuestions', type=str, default='/home/aolivera/TFM-LLM/LLM/Data/val_validData_BB.json', help='path of the config file')
+    parser.add_argument('--data', type=str, default='/home/aolivera/TFM-LLM/LLM/Data/val_validData_BB.json', help='path of the data file with the valid questions')
     args = parser.parse_args()
 
     config = load_config(parse_args())
@@ -187,7 +153,7 @@ if __name__ == "__main__":
     alid_questions_id = []
     valid_questions_id = []
 
-    with open(args.validQuestions) as f:
+    with open(args.data) as f:
         validData = json.load(f)
 
     

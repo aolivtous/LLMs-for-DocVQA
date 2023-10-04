@@ -4,10 +4,6 @@ import argparse
 from fastchat.utils import clean_flant5_ckpt
 import os
 
-
-
-
-
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "5"
     parser = argparse.ArgumentParser()

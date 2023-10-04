@@ -106,18 +106,6 @@ def main(img_path, model, tokenizer):
     img.cuda()
                  
 
-    """if "toy5" in training_args.output_dir:
-        #option5
-        input_ids = tokenizer(["### Human: What does it say here: . Answer with just one word\n### Assistant:  </s>"]).input_ids 
-        
-        #input_ids= [[1713, 30345, 32106, 3892, 10, 32106, 363, 32106, 405, 32106, 34, 32106, 497, 32106, 270, 10, 32106, 3, 5, 32106, 11801, 32106, 28, 32106, 131, 32106, 80, 32106, 1448, 32103, 1713, 30345, 32106, 9255, 10, 32106, 1]]
-        input_ids = torch.tensor(input_ids).cuda()
-        input_embeds = model.llm_model.shared(input_ids)
-        
-        first_input_embeds = input_embeds[:, :17, :].cuda()
-        second_input_embeds = input_embeds[:, 17:, :].cuda()"""
-        
-    
     input_ids = tokenizer(["### Human: Type just the following text:  \n### Assistant:  </s>"]).input_ids 
     #input_ids = [[1713, 30345, 32106, 3892, 10, 32106, 6632, 32106, 131, 32106, 8, 32106, 826, 32106, 1499, 10, 32106, 32103, 1713, 30345, 32106, 9255, 10, 32106, 1]]
     input_ids = torch.tensor(input_ids).cuda()            

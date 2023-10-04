@@ -15,14 +15,17 @@ This repository is an extension of the [FastChat](https://github.com/lm-sys/Fast
 - **Multimodal DocVQA:** We propose a multimodal approach to do DocVQA that represents initial steps toward developing a comprehensive and robust solution for addressing this challenging task end-to-end. 
 
 ## Install
+```bash
 git clone https://github.com/aolivtous/LLMs-for-DocVQA.git
 cd LLMs-for-DocVQA
+```
 
 ## Contents
 ### Configs
 Contains the configuration of the SP-DocVQA dataset
 
 ### Utils
+Contains the files to extract the data from the dataset, create the data loaders and save them in JSON files. It also includes the files to perform the evaluation.
 
 ### Modified-Fastchat
-
+LLMs-for-DocVQA\Modified-Fastchat\scripts

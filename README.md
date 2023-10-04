@@ -44,15 +44,24 @@ Modified-Fastchat
 |||-- train
 |||-- train
 
-my-app/
-├─ node_modules/
-├─ public/
-│  ├─ favicon.ico
-│  ├─ index.html
-│  ├─ robots.txt
-├─ src/
-│  ├─ index.css
-│  ├─ index.js
-├─ .gitignore
-├─ package.json
-├─ README.md
+
+
+That's a great idea! To create a directory tree in your README.md file, you can use a combination of backticks and tree symbols. Here's a simple example:
+
+plaintext
+Copy code
+project
+│   README.md
+│   index.html
+│
+├── css
+│   ├── styles.css
+│   └── reset.css
+│
+├── js
+│   ├── main.js
+│   └── utils.js
+│
+└── img
+    ├── logo.png
+    └── background.jpg

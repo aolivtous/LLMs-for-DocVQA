@@ -21,11 +21,14 @@ cd LLMs-for-DocVQA
 ```
 
 ## Contents
-### Configs
-Contains the configuration of the SP-DocVQA dataset
+- **Configs:** Contains the configuration of the SP-DocVQA dataset
+- **Utils:** Contains the files to extract the data from the dataset, create the data loaders and save them in JSON files. It also includes the files to perform the evaluation.
+- **Modified-Fastchat:** Contains the [FastChat](https://github.com/lm-sys/FastChat) repository with our modifications for using LLMs for DocVQA.
 
-### Utils
-Contains the files to extract the data from the dataset, create the data loaders and save them in JSON files. It also includes the files to perform the evaluation.
+## Usage
+Detailed examples of the specific arguments needed to call each of the training or inference files can be found in the folder scripts [scripts](https://github.com/aolivtous/LLMs-for-DocVQA/Modified-Fastchat/scripts)
 
-### Modified-Fastchat
-LLMs-for-DocVQA\Modified-Fastchat\scripts
+### Train 
+
+### Inference
+

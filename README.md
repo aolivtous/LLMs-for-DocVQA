@@ -26,7 +26,7 @@ cd LLMs-for-DocVQA
 - **Modified-Fastchat:** Contains the [FastChat](https://github.com/lm-sys/FastChat) repository with our modifications for using LLMs for DocVQA.
 
 ## Usage
-Detailed examples of the specific arguments needed to call each of the training or inference files can be found in the folder [scripts](https://github.com/aolivtous/LLMs-for-DocVQA/Modified-Fastchat/scripts).
+Detailed examples of the specific arguments needed to call each of the training or inference files can be found in the folder [scripts](https://github.com/aolivtous/LLMs-for-DocVQA/Modified-Fastchat/fastchat/scripts).
 
 ### Train 
 

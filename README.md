@@ -1,4 +1,4 @@
-![Alt text](aolivtous/LLM/Figures/VisualMethod.png)
+![Alt text](Figures/visualMethod3.png)
 
 # Large Language Models for Document Visual Question Answering
 

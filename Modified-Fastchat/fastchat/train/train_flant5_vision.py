@@ -13,7 +13,6 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from collections import defaultdict
 import copy
 import os
 from dataclasses import dataclass, field
@@ -21,25 +20,17 @@ import random
 import json
 import logging
 import pathlib
-from typing import Any, Dict, Optional, Sequence
-
-import numpy as np
+from typing import Dict, Optional, Sequence
 import torch
-import torch.distributed as dist
 import torchvision.transforms as transforms
-import tqdm
 import transformers
 from transformers import CLIPImageProcessor 
 from PIL import Image
 from torch.utils.data import Dataset
-from transformers import Trainer, AddedToken
-from transformers.models.t5 import modeling_t5
-
+from transformers import Trainer
 from fastchat.model.model_adapter import get_conversation_template
 
 default_conversation = get_conversation_template("t5")
-
-# TODO: import and use code from ../data/dataset.py
 
 import sys
 # caution: path[0] is reserved for script path (or '' in REPL)

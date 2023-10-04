@@ -13,7 +13,6 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from collections import defaultdict
 import copy
 import os
 from dataclasses import dataclass, field
@@ -22,19 +21,13 @@ import json
 import logging
 import pathlib
 from typing import Dict, Optional, Sequence
-
 import torch
-import torch.distributed as dist
-
 import transformers
 from torch.utils.data import Dataset
 from transformers import Trainer, AddedToken
-
 from fastchat.model.model_adapter import get_conversation_template
 
 default_conversation = get_conversation_template("t5")
-
-# TODO: import and use code from ../data/dataset.py
 
 IGNORE_INDEX = -100
 DEFAULT_PAD_TOKEN = "[PAD]"

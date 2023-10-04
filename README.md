@@ -14,4 +14,15 @@ This repository is an extension of the [FastChat](https://github.com/lm-sys/Fast
 - **Pre-training Task:** A dedicated pre-training task has been designed to enable the Language Model to read and comprehend visual information.
 - **Multimodal DocVQA:** We propose a multimodal approach to do DocVQA that represents initial steps toward developing a comprehensive and robust solution for addressing this challenging task end-to-end. 
 
+## Install
+git clone https://github.com/aolivtous/LLMs-for-DocVQA.git
+cd LLMs-for-DocVQA
+
+## Contents
+### Configs
+Contains the configuration of the SP-DocVQA dataset
+
+### Utils
+
+### Modified-Fastchat
 

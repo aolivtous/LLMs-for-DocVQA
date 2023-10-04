@@ -29,14 +29,17 @@ cd LLMs-for-DocVQA
 Detailed examples of the specific arguments needed to call each of the training or inference files can be found in the folder [scripts](https://github.com/aolivtous/LLMs-for-DocVQA/tree/main/Modified-Fastchat/scripts).
 
 ### Train 
-- Modified-Fastchat
-  |-- fastchat
-  |   |-- train
-  |       |-- 
+Modified-Fastchat
+|-- fastchat
+||-- train
+|||-- train
+|||-- train
+|||-- train
   
 ### Inference
-- Modified-Fastchat
-  |-- fastchat
-  |   |-- serve
-  |       |-- 
-
+Modified-Fastchat
+|-- fastchat
+||-- serve
+|||-- train
+|||-- train
+|||-- train

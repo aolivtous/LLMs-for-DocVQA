@@ -28,45 +28,21 @@ cd LLMs-for-DocVQA
 ## Usage
 Detailed examples of the specific arguments needed to call each of the training or inference files can be found in the folder [scripts](https://github.com/aolivtous/LLMs-for-DocVQA/tree/main/Modified-Fastchat/scripts).
 
-### Train 
-Modified-Fastchat
-|-- fastchat
-||-- train
-|||-- train
-|||-- train
-|||-- train
+### Key files for fine-tuning and inference
   
-### Inference
-Modified-Fastchat
-|-- fastchat
-||-- serve
-|||-- train
-|||-- train
-|||-- train
-
-
-
-That's a great idea! To create a directory tree in your README.md file, you can use a combination of backticks and tree symbols. Here's a simple example:
-
 ```plaintext
-project
-│ README.md
-│ index.html
+Modified-Fastchat
 │
-├── css
-│ ├── styles.css
-│ └── reset.css
-│
-├── js
-│ ├── main.js
-│ └── utils.js
-│
-└── img
-├── logo.png
-└── background.jpg
+├── fastchat
+    ├── train
+    │   ├── train_flant5_eval.py --> training of the Flan-T5 model in the text-to-text modality for DocVQA
+    │   └── train_flant5_vision.py --> training of the Flan-T5 model in the multimodal domain for DocVQA and the pre-training task
+    │
+    ├── serve
+        ├── huggingface_api_inference.py --> inference for the text-to-text DocVQA
+        └── huggingface_api_inference_vision_DocVQA.py --> inference for the multimodal DocVQA
+        └── huggingface_api_inference_vision_preTask.py --> inference for the reading pre-training task
 ```
-
-Copy and paste this into your README.md file, and it should display correctly.
 
 
 

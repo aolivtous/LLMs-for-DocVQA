@@ -2,6 +2,19 @@
 
 # Large Language Models for Document Visual Question Answering
 
-This study introduces innovative methods for Document Visual Question Answering (DocVQA) through the utilization of Large Language Models (LLMs). Our approach involves fine-tuning the Flan-T5 model on the SP-DocVQA dataset with diverse context types, revealing the effectiveness of incorporating spatial information. By utilizing both the document’s textual content and the corresponding bounding box locations of words, we achieve the best performance, reaching an ANLS score of 0.76, using only the text modality. Furthermore, we attempt to incorporate word recognition in the language model itself. To this purpose, we
-present a multimodal DocVQA pipeline and establish a pre-training task aimed at aligning the visual features of cropped word images with the LLM space. This approach enables the LLM to effectively understand and process visual information. Finally, we explore two novel methods for performing DocVQA by utilizing the visual embeddings of words. These approaches represent initial steps toward developing a comprehensive and robust solution for addressing this challenging task in an end-to-end manner.
+This repository is an extension of the [FastChat](https://github.com/lm-sys/FastChat) repository, implementing baselines and multimodal adaptations for utilizing Language Models (LLMs) in Document-based Visual Question Answering (DocVQA) as part of my Master's Thesis that can be found [here](https://www.overleaf.com/read/fcmbtrrprdwc).
 
+## Features
+
+- **Spatial Information Integration:** Various methods have been added to incorporate spatial information from the text of the documents into the prompts.
+  
+- **Visual Domain Inclusion:** Visual features are extracted using a Vision Transformer (ViT) for each word in the document, enhancing the model's understanding of the visual context.
+
+- **Pre-training Task:** A dedicated pre-training task has been designed to enable the Language Model to read and comprehend visual information.
+
+## Usage
+
+To get started, clone the FastChat repository:
+
+```bash
+git clone https://github.com/lm-sys/FastChat.git
